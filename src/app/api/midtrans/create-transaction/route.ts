@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createSnapClient } from '@/lib/midtrans/config'
 import type { BookingWithDetails } from '@/lib/types'
 
@@ -41,20 +41,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Booking is not pending' }, { status: 400 })
     }
 
-    // Check for existing pending payment — return existing token if found
-    const { data: existingPayment } = await supabase
+    // Delete any stale pending payments for this booking (expired snap tokens)
+    const serviceClient = await createServiceClient()
+    await serviceClient
       .from('payments')
-      .select('snap_token, midtrans_order_id')
+      .delete()
       .eq('booking_id', bookingId)
       .eq('status', 'pending')
-      .single()
-
-    if (existingPayment?.snap_token) {
-      return NextResponse.json({
-        snapToken: existingPayment.snap_token,
-        orderId: existingPayment.midtrans_order_id,
-      })
-    }
 
     // Check expiry
     if (typedBooking.expires_at && new Date(typedBooking.expires_at) < new Date()) {
@@ -93,8 +86,8 @@ export async function POST(request: Request) {
 
     const transaction = await snap.createTransaction(parameter)
 
-    // Save payment record
-    await supabase.from('payments').insert({
+    // Save payment record (use service client to bypass RLS)
+    await serviceClient.from('payments').insert({
       booking_id: bookingId,
       midtrans_order_id: orderId,
       gross_amount: typedBooking.total_price,
