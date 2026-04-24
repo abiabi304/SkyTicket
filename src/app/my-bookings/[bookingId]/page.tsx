@@ -1,0 +1,144 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { Navbar } from '@/components/layout/navbar'
+import { MobileNav } from '@/components/layout/mobile-nav'
+import { PageHeader } from '@/components/shared/page-header'
+import { FlightSummaryCard } from '@/components/booking/flight-summary-card'
+import { ETicket } from '@/components/my-bookings/e-ticket'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { CancelBookingButton } from '@/components/my-bookings/cancel-booking-button'
+import { formatRupiah, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils'
+import type { BookingWithDetails, Profile } from '@/lib/types'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Detail Pesanan',
+}
+
+interface BookingDetailPageProps {
+  params: { bookingId: string }
+}
+
+export default async function BookingDetailPage({ params }: BookingDetailPageProps) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const [{ data: booking }, { data: profile }] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select(`
+        *,
+        flight:flights(
+          *,
+          airline:airlines(*),
+          departure_airport:airports!flights_departure_airport_id_fkey(*),
+          arrival_airport:airports!flights_arrival_airport_id_fkey(*)
+        ),
+        passengers(*),
+        payment:payments(*)
+      `)
+      .eq('id', params.bookingId)
+      .eq('user_id', user.id)
+      .single(),
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+  ])
+
+  if (!booking) redirect('/my-bookings')
+
+  const typedBooking = {
+    ...booking,
+    payment: Array.isArray(booking.payment) ? booking.payment[0] ?? null : booking.payment,
+  } as unknown as BookingWithDetails
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Navbar user={profile as Profile} />
+      <main className="flex-1 pb-20 md:pb-0">
+        <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
+          <div className="flex items-start justify-between">
+            <PageHeader title="Detail Pesanan" showBack />
+            <Badge
+              variant="outline"
+              className={getBookingStatusColor(typedBooking.status)}
+            >
+              {getBookingStatusLabel(typedBooking.status)}
+            </Badge>
+          </div>
+
+          <div className="mt-6 space-y-6">
+            {/* Booking code */}
+            <Card>
+              <CardContent className="flex items-center justify-between pt-6">
+                <div>
+                  <p className="text-sm text-muted-foreground">Kode Booking</p>
+                  <p className="font-mono text-2xl font-bold text-primary">
+                    {typedBooking.booking_code}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-lg font-bold">{formatRupiah(typedBooking.total_price)}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Flight info */}
+            <FlightSummaryCard flight={typedBooking.flight} />
+
+            {/* Passengers */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Penumpang</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {typedBooking.passengers.map((p, i) => (
+                  <div key={p.id}>
+                    {i > 0 && <Separator className="mb-3" />}
+                    <div className="flex justify-between">
+                      <div>
+                        <p className="font-medium">{p.full_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {p.id_type.toUpperCase()}: {p.id_number}
+                        </p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Penumpang {i + 1}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* E-Ticket (only for paid bookings) */}
+            {typedBooking.status === 'paid' && (
+              <ETicket booking={typedBooking} />
+            )}
+
+            {/* Actions */}
+            {typedBooking.status === 'pending' && (
+              <div className="space-y-3">
+                <Button asChild className="w-full" size="lg">
+                  <Link href={`/payment/${typedBooking.id}`}>
+                    Lanjutkan Pembayaran
+                  </Link>
+                </Button>
+                <CancelBookingButton
+                  bookingId={typedBooking.id}
+                  bookingCode={typedBooking.booking_code}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+      <MobileNav />
+    </div>
+  )
+}
