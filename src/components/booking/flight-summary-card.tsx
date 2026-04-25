@@ -38,7 +38,7 @@ export function FlightSummaryCard({ flight }: FlightSummaryCardProps) {
           <p className="text-xs text-muted-foreground">{formatDuration(flight.duration_minutes)}</p>
           <div className="relative flex w-full items-center">
             <div className="h-px flex-1 bg-border" />
-            <div className="mx-1 text-primary">✈</div>
+            <div className="mx-1 text-primary" aria-hidden="true">✈</div>
             <div className="h-px flex-1 bg-border" />
           </div>
         </div>

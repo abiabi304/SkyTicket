@@ -54,6 +54,7 @@ export function PopularRoutes({ routes }: PopularRoutesProps) {
                 `/flights?from=${route.from}&to=${route.to}&month=${monthStr}&pax=1&class=economy`
               )
             }
+            aria-label={`${route.fromCity} ke ${route.toCity}, mulai dari ${formatRupiah(route.minPrice)}`}
             className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} p-4 text-left text-white shadow-md transition-shadow hover:shadow-lg md:p-5`}
           >
             <Plane className="absolute -bottom-2 -right-2 size-16 rotate-45 text-white/10" />

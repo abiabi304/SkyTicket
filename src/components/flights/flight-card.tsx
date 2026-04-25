@@ -37,7 +37,7 @@ export function FlightCard({ flight, passengers }: FlightCardProps) {
           </div>
         )}
         <div>
-          <p className="text-sm font-medium">{flight.airline.name}</p>
+          <p className="text-sm font-medium truncate max-w-[120px]">{flight.airline.name}</p>
           <p className="text-xs text-muted-foreground">{flight.flight_number}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -71,7 +71,7 @@ export function FlightCard({ flight, passengers }: FlightCardProps) {
           </p>
           <div className="relative flex w-full items-center">
             <div className="h-px flex-1 bg-border" />
-            <div className="mx-1 text-primary">✈</div>
+            <div className="mx-1 text-primary" aria-hidden="true">✈</div>
             <div className="h-px flex-1 bg-border" />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Langsung</p>

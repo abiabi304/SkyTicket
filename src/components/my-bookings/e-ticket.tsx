@@ -78,7 +78,7 @@ export function ETicket({ booking }: ETicketProps) {
               </div>
               <div className="shrink-0">
                 <QRCode
-                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/my-bookings/${booking.id}`}
+                  value={`${process.env.NEXT_PUBLIC_APP_URL || ''}/my-bookings/${booking.id}`}
                   size={90}
                   bgColor="transparent"
                   fgColor="#1A73E8"
@@ -125,7 +125,7 @@ export function ETicket({ booking }: ETicketProps) {
                   </p>
                   <div className="relative flex w-full items-center">
                     <div className="h-px flex-1 bg-border" />
-                    <div className="mx-2 text-lg text-primary">✈</div>
+                    <div className="mx-2 text-lg text-primary" aria-hidden="true">✈</div>
                     <div className="h-px flex-1 bg-border" />
                   </div>
                   <p className="text-xs text-muted-foreground">Langsung</p>

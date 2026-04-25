@@ -63,7 +63,7 @@ export function BookingCard({ booking }: BookingCardProps) {
           <span className="text-sm font-semibold">
             {booking.flight.arrival_airport.code}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground truncate">
             ({booking.flight.departure_airport.city} → {booking.flight.arrival_airport.city})
           </span>
         </div>

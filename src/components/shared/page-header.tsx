@@ -8,9 +8,10 @@ interface PageHeaderProps {
   title: string
   subtitle?: string
   showBack?: boolean
+  fallbackHref?: string
 }
 
-export function PageHeader({ title, subtitle, showBack = false }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, showBack = false, fallbackHref = '/' }: PageHeaderProps) {
   const router = useRouter()
 
   return (
@@ -20,10 +21,14 @@ export function PageHeader({ title, subtitle, showBack = false }: PageHeaderProp
           variant="ghost"
           size="icon"
           onClick={() => {
-            if (window.history.length > 1) {
+            const hasSameOriginReferrer =
+              typeof document !== 'undefined' &&
+              document.referrer &&
+              document.referrer.startsWith(window.location.origin)
+            if (window.history.length > 1 && hasSameOriginReferrer) {
               router.back()
             } else {
-              router.push('/')
+              router.push(fallbackHref)
             }
           }}
           className="mt-0.5 shrink-0"

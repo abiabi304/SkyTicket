@@ -345,7 +345,7 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
 
       {/* Mobile sticky bottom bar — only show when not in payment */}
       {selectedFlight && !snapShown && (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background p-4 shadow-lg md:hidden">
+        <div className="fixed inset-x-0 bottom-16 z-50 border-t bg-background p-4 shadow-lg md:hidden">
           <div className="mx-auto max-w-3xl">
             <div className="mb-2 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
