@@ -18,6 +18,7 @@ export interface Airline {
 export interface Flight {
   id: string
   airline_id: string
+  aircraft_type_id: string | null
   flight_number: string
   departure_airport_id: string
   arrival_airport_id: string
@@ -27,6 +28,41 @@ export interface Flight {
   price: number
   seat_class: SeatClass
   available_seats: number
+  created_at: string
+}
+
+export interface AircraftType {
+  id: string
+  name: string
+  seat_layout: SeatLayout
+  total_economy: number
+  total_business: number
+  created_at: string
+}
+
+export interface SeatLayout {
+  columns: (string | null)[]
+  rows: SeatLayoutRow[]
+}
+
+export interface SeatLayoutRow {
+  number: number
+  class: SeatClass
+  skip?: string[]
+  extraLegroom?: boolean
+}
+
+export interface FlightSeat {
+  id: string
+  flight_id: string
+  seat_label: string
+  seat_class: SeatClass
+  seat_type: 'window' | 'middle' | 'aisle'
+  row_number: number
+  column_label: string
+  price_modifier: number
+  is_available: boolean
+  passenger_id: string | null
   created_at: string
 }
 

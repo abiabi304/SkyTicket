@@ -52,10 +52,21 @@ CREATE TABLE public.airlines (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Aircraft Types (seat layout templates)
+CREATE TABLE public.aircraft_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(50) NOT NULL,
+  seat_layout JSONB NOT NULL,
+  total_economy INT NOT NULL DEFAULT 0,
+  total_business INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Flights
 CREATE TABLE public.flights (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   airline_id UUID REFERENCES public.airlines(id),
+  aircraft_type_id UUID REFERENCES public.aircraft_types(id),
   flight_number VARCHAR(10) NOT NULL,
   departure_airport_id UUID REFERENCES public.airports(id),
   arrival_airport_id UUID REFERENCES public.airports(id),
@@ -67,6 +78,25 @@ CREATE TABLE public.flights (
   available_seats INT NOT NULL DEFAULT 100,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Flight Seats (1 row per seat per flight)
+CREATE TABLE public.flight_seats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  flight_id UUID NOT NULL REFERENCES public.flights(id) ON DELETE CASCADE,
+  seat_label VARCHAR(5) NOT NULL,
+  seat_class VARCHAR(20) NOT NULL DEFAULT 'economy',
+  seat_type VARCHAR(20) NOT NULL DEFAULT 'aisle',
+  row_number SMALLINT NOT NULL,
+  column_label CHAR(1) NOT NULL,
+  price_modifier BIGINT NOT NULL DEFAULT 0,
+  is_available BOOLEAN NOT NULL DEFAULT true,
+  passenger_id UUID REFERENCES public.passengers(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(flight_id, seat_label)
+);
+
+CREATE INDEX idx_flight_seats_flight_avail ON public.flight_seats(flight_id, is_available);
+CREATE INDEX idx_flight_seats_passenger ON public.flight_seats(passenger_id);
 
 -- Bookings
 CREATE TABLE public.bookings (
@@ -193,6 +223,14 @@ CREATE POLICY "Admin read all bookings" ON public.bookings FOR SELECT USING (pub
 
 -- Admin read all payments
 CREATE POLICY "Admin read all payments" ON public.payments FOR SELECT USING (public.is_admin());
+
+-- Aircraft types + flight seats policies
+ALTER TABLE public.aircraft_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.flight_seats ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public read aircraft_types" ON public.aircraft_types FOR SELECT USING (true);
+CREATE POLICY "Admin manage aircraft_types" ON public.aircraft_types FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "Public read flight_seats" ON public.flight_seats FOR SELECT USING (true);
 
 -- =============================================
 -- Reschedule Support
@@ -355,6 +393,130 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Server-side booking expiry (run via pg_cron or Supabase cron)
 -- Schedule: SELECT cron.schedule('expire-bookings', '*/1 * * * *', 'SELECT public.expire_stale_bookings()');
 -- =============================================
+
+-- =============================================
+-- Seat Management RPCs
+-- =============================================
+
+-- Materialize seats for a flight from aircraft type template
+CREATE OR REPLACE FUNCTION public.materialize_flight_seats(p_flight_id UUID, p_aircraft_type_id UUID)
+RETURNS INT AS $fn$
+DECLARE
+  v_layout JSONB;
+  v_columns JSONB;
+  v_row JSONB;
+  v_col TEXT;
+  v_seat_class TEXT;
+  v_seat_type TEXT;
+  v_label TEXT;
+  v_count INT := 0;
+  v_col_idx INT;
+  v_col_count INT;
+  v_skip JSONB;
+BEGIN
+  SELECT seat_layout INTO v_layout FROM public.aircraft_types WHERE id = p_aircraft_type_id;
+  IF v_layout IS NULL THEN RETURN 0; END IF;
+
+  v_columns := v_layout->'columns';
+  v_col_count := jsonb_array_length(v_columns);
+
+  FOR v_row IN SELECT * FROM jsonb_array_elements(v_layout->'rows')
+  LOOP
+    v_seat_class := COALESCE(v_row->>'class', 'economy');
+    v_skip := COALESCE(v_row->'skip', '[]'::jsonb);
+
+    FOR v_col_idx IN 0..v_col_count-1
+    LOOP
+      v_col := v_columns->>v_col_idx;
+      IF v_col IS NULL THEN CONTINUE; END IF;
+      IF v_skip ? v_col THEN CONTINUE; END IF;
+
+      v_label := (v_row->>'number') || v_col;
+
+      -- Determine seat type based on column position
+      IF v_col_idx = 0 OR v_col_idx = v_col_count - 1 THEN
+        v_seat_type := 'window';
+      ELSIF v_columns->>( v_col_idx - 1) IS NULL OR v_columns->>(v_col_idx + 1) IS NULL THEN
+        v_seat_type := 'aisle';
+      ELSE
+        v_seat_type := 'middle';
+      END IF;
+
+      INSERT INTO public.flight_seats (flight_id, seat_label, seat_class, seat_type, row_number, column_label, price_modifier)
+      VALUES (
+        p_flight_id,
+        v_label,
+        v_seat_class,
+        v_seat_type,
+        (v_row->>'number')::SMALLINT,
+        v_col,
+        CASE
+          WHEN v_seat_type = 'window' THEN 25000
+          WHEN v_seat_type = 'aisle' THEN 15000
+          ELSE 0
+        END
+      );
+      v_count := v_count + 1;
+    END LOOP;
+  END LOOP;
+
+  -- Update available_seats on flight
+  UPDATE public.flights SET available_seats = v_count WHERE id = p_flight_id;
+
+  RETURN v_count;
+END;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Assign seats atomically during booking
+CREATE OR REPLACE FUNCTION public.assign_seats(
+  p_flight_id UUID,
+  p_seat_assignments JSONB -- [{"passenger_id": "uuid", "seat_label": "14A"}, ...]
+) RETURNS BOOLEAN AS $fn$
+DECLARE
+  v_assignment JSONB;
+BEGIN
+  FOR v_assignment IN SELECT * FROM jsonb_array_elements(p_seat_assignments)
+  LOOP
+    UPDATE public.flight_seats
+    SET passenger_id = (v_assignment->>'passenger_id')::UUID, is_available = false
+    WHERE flight_id = p_flight_id
+      AND seat_label = v_assignment->>'seat_label'
+      AND is_available = true;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Kursi % sudah tidak tersedia', v_assignment->>'seat_label';
+    END IF;
+  END LOOP;
+
+  -- Update available_seats counter
+  UPDATE public.flights SET available_seats = (
+    SELECT COUNT(*) FROM public.flight_seats WHERE flight_id = p_flight_id AND is_available = true
+  ) WHERE id = p_flight_id;
+
+  RETURN TRUE;
+END;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Release seats (for cancel/expire/reschedule)
+CREATE OR REPLACE FUNCTION public.release_booking_seats(p_booking_id UUID)
+RETURNS VOID AS $fn$
+DECLARE
+  v_flight_id UUID;
+BEGIN
+  SELECT flight_id INTO v_flight_id FROM public.bookings WHERE id = p_booking_id;
+
+  UPDATE public.flight_seats
+  SET passenger_id = NULL, is_available = true
+  WHERE passenger_id IN (SELECT id FROM public.passengers WHERE booking_id = p_booking_id);
+
+  -- Update counter
+  IF v_flight_id IS NOT NULL THEN
+    UPDATE public.flights SET available_seats = (
+      SELECT COUNT(*) FROM public.flight_seats WHERE flight_id = v_flight_id AND is_available = true
+    ) WHERE id = v_flight_id;
+  END IF;
+END;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================
 -- Reschedule RPCs
