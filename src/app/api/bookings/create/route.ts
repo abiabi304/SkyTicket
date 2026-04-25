@@ -12,31 +12,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { flightId, passengers, contactEmail, contactPhone } = await request.json()
+    const { flightId, passengers, contactEmail, contactPhone, seatAssignments } = await request.json()
 
     // Validate required fields
     if (!flightId || !passengers?.length || !contactEmail || !contactPhone) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Validate passenger count
     if (passengers.length < 1 || passengers.length > 5) {
       return NextResponse.json({ error: 'Jumlah penumpang harus 1-5' }, { status: 400 })
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(contactEmail)) {
       return NextResponse.json({ error: 'Format email tidak valid' }, { status: 400 })
     }
 
-    // Validate phone format (Indonesian: 08xx or +628xx, 10-15 digits)
     const phoneClean = contactPhone.replace(/[\s\-()]/g, '')
     if (!/^(\+62|62|0)8\d{7,12}$/.test(phoneClean)) {
       return NextResponse.json({ error: 'Format nomor telepon tidak valid' }, { status: 400 })
     }
 
-    // Validate each passenger
     for (let i = 0; i < passengers.length; i++) {
       const p = passengers[i]
       if (!p.full_name || p.full_name.trim().length < 3) {
@@ -54,14 +50,12 @@ export async function POST(request: Request) {
     }
 
     const passengerCount = passengers.length
-
-    // Use service client for atomic seat operations
     const serviceClient = await createServiceClient()
 
     // Check flight exists and has enough seats
     const { data: flight } = await serviceClient
       .from('flights')
-      .select('id, price, available_seats')
+      .select('id, price, available_seats, aircraft_type_id')
       .eq('id', flightId)
       .single()
 
@@ -75,21 +69,45 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // Atomic seat decrement
-    const { data: seatResult } = await serviceClient.rpc('decrement_seats', {
-      p_flight_id: flightId,
-      p_count: passengerCount,
-    })
+    // Calculate total price including seat modifiers
+    let seatModifierTotal = 0
+    const hasSeatAssignments = seatAssignments && Object.keys(seatAssignments).length > 0
 
-    if (seatResult === -1) {
-      return NextResponse.json({ error: 'Kursi tidak cukup' }, { status: 400 })
+    if (hasSeatAssignments) {
+      // Validate seat assignments and calculate modifiers
+      const seatLabels = Object.values(seatAssignments) as string[]
+      const { data: seats } = await serviceClient
+        .from('flight_seats')
+        .select('seat_label, price_modifier, is_available')
+        .eq('flight_id', flightId)
+        .in('seat_label', seatLabels)
+
+      if (seats) {
+        for (const seat of seats) {
+          if (!seat.is_available) {
+            return NextResponse.json({ error: `Kursi ${seat.seat_label} sudah tidak tersedia` }, { status: 400 })
+          }
+          seatModifierTotal += seat.price_modifier
+        }
+      }
+    }
+
+    // Atomic seat decrement (for flights without seat map, or as fallback)
+    if (!hasSeatAssignments) {
+      const { data: seatResult } = await serviceClient.rpc('decrement_seats', {
+        p_flight_id: flightId,
+        p_count: passengerCount,
+      })
+      if (seatResult === -1) {
+        return NextResponse.json({ error: 'Kursi tidak cukup' }, { status: 400 })
+      }
     }
 
     const bookingCode = generateBookingCode()
-    const totalPrice = flight.price * passengerCount
+    const totalPrice = (flight.price * passengerCount) + seatModifierTotal
     const expiresAt = new Date(Date.now() + BOOKING_EXPIRY_MINUTES * 60 * 1000).toISOString()
 
-    // Create booking (use service client to bypass RLS — auth.uid() may be stale)
+    // Create booking
     const { data: booking, error: bookingError } = await serviceClient
       .from('bookings')
       .insert({
@@ -108,29 +126,56 @@ export async function POST(request: Request) {
 
     if (bookingError) {
       console.error('Booking insert error:', JSON.stringify(bookingError))
-      // Rollback seats
-      await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
+      if (!hasSeatAssignments) {
+        await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
+      }
       return NextResponse.json({ error: `Failed to create booking: ${bookingError.message}` }, { status: 500 })
     }
 
     // Create passengers
-    const { error: passengersError } = await serviceClient
-      .from('passengers')
-      .insert(
-        passengers.map((p: { full_name: string; id_type: string; id_number: string }) => ({
-          booking_id: booking.id,
-          full_name: p.full_name,
-          id_type: p.id_type,
-          id_number: p.id_number,
-        }))
-      )
+    const passengerInserts = passengers.map((p: { full_name: string; id_type: string; id_number: string }, i: number) => ({
+      booking_id: booking.id,
+      full_name: p.full_name,
+      id_type: p.id_type,
+      id_number: p.id_number,
+      seat_number: hasSeatAssignments ? (seatAssignments[String(i)] ?? null) : null,
+    }))
 
-    if (passengersError) {
+    const { data: createdPassengers, error: passengersError } = await serviceClient
+      .from('passengers')
+      .insert(passengerInserts)
+      .select()
+
+    if (passengersError || !createdPassengers) {
       console.error('Passengers insert error:', JSON.stringify(passengersError))
-      // Rollback: cancel booking + restore seats
       await serviceClient.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
-      await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
-      return NextResponse.json({ error: `Failed to create passengers: ${passengersError.message}` }, { status: 500 })
+      if (!hasSeatAssignments) {
+        await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
+      }
+      return NextResponse.json({ error: `Failed to create passengers: ${passengersError?.message}` }, { status: 500 })
+    }
+
+    // Assign seats atomically if seat assignments provided
+    if (hasSeatAssignments && createdPassengers.length > 0) {
+      const assignments = createdPassengers.map((p, i) => ({
+        passenger_id: p.id,
+        seat_label: seatAssignments[String(i)] ?? '',
+      })).filter(a => a.seat_label)
+
+      if (assignments.length > 0) {
+        const { error: seatError } = await serviceClient.rpc('assign_seats', {
+          p_flight_id: flightId,
+          p_seat_assignments: assignments,
+        })
+
+        if (seatError) {
+          console.error('Seat assignment error:', JSON.stringify(seatError))
+          // Rollback everything
+          await serviceClient.from('passengers').delete().eq('booking_id', booking.id)
+          await serviceClient.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
+          return NextResponse.json({ error: seatError.message || 'Gagal menetapkan kursi' }, { status: 400 })
+        }
+      }
     }
 
     return NextResponse.json({ bookingId: booking.id, bookingCode })

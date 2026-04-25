@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { FlightSummaryCard } from './flight-summary-card'
 import { PassengerForm } from './passenger-form'
 import { ContactForm } from './contact-form'
+import { SeatSelection } from './seat-selection'
 import { BookingSummary } from './booking-summary'
 import { PageHeader } from '@/components/shared/page-header'
 import {
@@ -19,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { formatRupiah, formatTime, formatDate } from '@/lib/utils'
-import type { FlightWithDetails, PassengerInput, Profile } from '@/lib/types'
+import type { FlightWithDetails, PassengerInput, Profile, FlightSeat, SeatLayout } from '@/lib/types'
 
 interface BookingFlowProps {
   flight: FlightWithDetails
@@ -43,7 +44,51 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
   const [contactEmail, setContactEmail] = useState(profile.email)
   const [contactPhone, setContactPhone] = useState(profile.phone ?? '')
 
-  const totalPrice = flight.price * passengerCount
+  // Seat selection state
+  const [flightSeats, setFlightSeats] = useState<FlightSeat[]>([])
+  const [seatLayout, setSeatLayout] = useState<SeatLayout | null>(null)
+  const [selectedSeats, setSelectedSeats] = useState<Map<number, string>>(new Map())
+  const [seatsLoading, setSeatsLoading] = useState(true)
+
+  // Fetch seats on mount
+  useEffect(() => {
+    async function fetchSeats() {
+      try {
+        const res = await fetch(`/api/flights/${flight.id}/seats`)
+        if (res.ok) {
+          const data = await res.json()
+          setFlightSeats(data.seats ?? [])
+          setSeatLayout(data.layout ?? null)
+        }
+      } catch {
+        // Seat selection is optional — silently fail
+      } finally {
+        setSeatsLoading(false)
+      }
+    }
+    fetchSeats()
+  }, [flight.id])
+
+  // Build a lookup for seat price modifiers
+  const seatLookup = useMemo(() => {
+    const map = new Map<string, FlightSeat>()
+    for (const s of flightSeats) map.set(s.seat_label, s)
+    return map
+  }, [flightSeats])
+
+  const seatModifierTotal = useMemo(() => {
+    let total = 0
+    const labels = Array.from(selectedSeats.values())
+    for (let i = 0; i < labels.length; i++) {
+      const seat = seatLookup.get(labels[i])
+      if (seat) total += seat.price_modifier
+    }
+    return total
+  }, [selectedSeats, seatLookup])
+
+  const totalPrice = flight.price * passengerCount + seatModifierTotal
+
+  const hasSeatSelection = seatLayout !== null && flightSeats.length > 0
 
   const validateForm = (): boolean => {
     for (let i = 0; i < passengers.length; i++) {
@@ -76,6 +121,13 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
     setShowConfirmation(false)
     setLoading(true)
     try {
+      // Build seat assignments: passengerIndex -> seatLabel
+      const seatAssignments: Record<number, string> = {}
+      const entries = Array.from(selectedSeats.entries())
+      for (let i = 0; i < entries.length; i++) {
+        seatAssignments[entries[i][0]] = entries[i][1]
+      }
+
       const response = await fetch('/api/bookings/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,6 +136,7 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
           passengers,
           contactEmail,
           contactPhone,
+          seatAssignments: Object.keys(seatAssignments).length > 0 ? seatAssignments : undefined,
         }),
       })
 
@@ -103,6 +156,14 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
     }
   }
 
+  const getSeatTypeLabel = useCallback((type: FlightSeat['seat_type']): string => {
+    switch (type) {
+      case 'window': return 'Jendela'
+      case 'middle': return 'Tengah'
+      case 'aisle': return 'Lorong'
+    }
+  }, [])
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
       <PageHeader title="Pesan Penerbangan" showBack />
@@ -120,6 +181,18 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
             onEmailChange={setContactEmail}
             onPhoneChange={setContactPhone}
           />
+
+          {/* Seat selection — only if aircraft has seat data */}
+          {!seatsLoading && hasSeatSelection && (
+            <SeatSelection
+              layout={seatLayout!}
+              seats={flightSeats}
+              passengers={passengers}
+              selectedSeats={selectedSeats}
+              onSeatsChange={setSelectedSeats}
+              basePrice={flight.price}
+            />
+          )}
         </div>
 
         <BookingSummary
@@ -159,11 +232,26 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
             <div>
               <p className="text-sm font-medium text-muted-foreground">Penumpang</p>
               <ul className="mt-1 space-y-1">
-                {passengers.map((p, i) => (
-                  <li key={i} className="text-sm">
-                    {i + 1}. {p.full_name}
-                  </li>
-                ))}
+                {passengers.map((p, i) => {
+                  const seatLabel = selectedSeats.get(i)
+                  const seat = seatLabel ? seatLookup.get(seatLabel) : null
+
+                  return (
+                    <li key={i} className="text-sm">
+                      <span>{i + 1}. {p.full_name}</span>
+                      {seat && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          — Kursi {seatLabel} ({getSeatTypeLabel(seat.seat_type)})
+                          {seat.price_modifier > 0 && (
+                            <span className="ml-1 font-medium text-primary">
+                              +{formatRupiah(seat.price_modifier)}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
 
@@ -177,11 +265,24 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
 
             <Separator />
 
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Total Harga</span>
-              <span className="text-lg font-bold text-primary">
-                {formatRupiah(totalPrice)}
-              </span>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span>Harga tiket ({passengerCount}x)</span>
+                <span>{formatRupiah(flight.price * passengerCount)}</span>
+              </div>
+              {seatModifierTotal > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span>Biaya tambahan kursi</span>
+                  <span>+{formatRupiah(seatModifierTotal)}</span>
+                </div>
+              )}
+              <Separator />
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Total Harga</span>
+                <span className="text-lg font-bold text-primary">
+                  {formatRupiah(totalPrice)}
+                </span>
+              </div>
             </div>
           </div>
 

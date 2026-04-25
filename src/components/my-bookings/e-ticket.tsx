@@ -130,6 +130,7 @@ export function ETicket({ booking }: ETicketProps) {
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {p.id_type.toUpperCase()}: {p.id_number ?? '-'}
+                      {p.seat_number && <> • Kursi {p.seat_number}</>}
                     </span>
                   </div>
                 ))}
