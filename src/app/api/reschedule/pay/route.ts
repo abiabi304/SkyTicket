@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         *,
         booking:bookings(
           *,
-          flight:flights(
+          flight:flights!bookings_flight_id_fkey(
             *,
             airline:airlines(*),
             departure_airport:airports!flights_departure_airport_id_fkey(*),

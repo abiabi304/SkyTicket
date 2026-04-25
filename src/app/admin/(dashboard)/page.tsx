@@ -28,7 +28,7 @@ export default async function AdminDashboardPage() {
     supabase.from('bookings').select('total_price').eq('status', 'paid'),
     supabase.from('bookings').select(`
       id, booking_code, status, total_price, passenger_count, created_at,
-      flight:flights(
+        flight:flights!bookings_flight_id_fkey(
         flight_number,
         departure_airport:airports!flights_departure_airport_id_fkey(code, city),
         arrival_airport:airports!flights_arrival_airport_id_fkey(code, city)
