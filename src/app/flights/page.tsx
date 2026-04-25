@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
 import { Footer } from '@/components/layout/footer'
@@ -29,7 +29,8 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   let profile: Profile | null = null
   if (user) {
-    const { data } = await supabase
+    const serviceClient = await createServiceClient()
+    const { data } = await serviceClient
       .from('profiles')
       .select('*')
       .eq('id', user.id)

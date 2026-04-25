@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
@@ -22,8 +22,10 @@ export default async function Reschedule({ params }: ReschedulePageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login?redirect=/reschedule/${params.bookingId}`)
 
+  const serviceClient = await createServiceClient()
+
   const [{ data: booking }, { data: profile }] = await Promise.all([
-    supabase
+    serviceClient
       .from('bookings')
       .select(`
         *,
@@ -38,7 +40,7 @@ export default async function Reschedule({ params }: ReschedulePageProps) {
       .eq('id', params.bookingId)
       .eq('user_id', user.id)
       .single(),
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    serviceClient.from('profiles').select('*').eq('id', user.id).single(),
   ])
 
   if (!booking) redirect('/my-bookings')
@@ -64,7 +66,7 @@ export default async function Reschedule({ params }: ReschedulePageProps) {
   }
 
   // Fetch available flights on the same route & seat class (excluding current flight)
-  const { data: availableFlights } = await supabase
+  const { data: availableFlights } = await serviceClient
     .from('flights')
     .select(`
       *,

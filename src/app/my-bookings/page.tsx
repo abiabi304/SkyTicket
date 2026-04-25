@@ -1,4 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+export const dynamic = 'force-dynamic'
+
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { FileText } from 'lucide-react'
 import { Navbar } from '@/components/layout/navbar'
@@ -10,8 +12,6 @@ import { BookingCard } from '@/components/my-bookings/booking-card'
 import type { Profile } from '@/lib/types'
 import type { Metadata } from 'next'
 
-export const dynamic = 'force-dynamic'
-
 export const metadata: Metadata = {
   title: 'Pesanan Saya',
 }
@@ -22,8 +22,11 @@ export default async function MyBookingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?redirect=/my-bookings')
 
+  // Use service client to bypass RLS — auth.uid() may be stale in server components
+  const serviceClient = await createServiceClient()
+
   const [{ data: bookings, error: bookingsError }, { data: profile }] = await Promise.all([
-    supabase
+    serviceClient
       .from('bookings')
       .select(`
         *,
@@ -36,7 +39,7 @@ export default async function MyBookingsPage() {
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    serviceClient.from('profiles').select('*').eq('id', user.id).single(),
   ])
 
   if (bookingsError) {

@@ -24,8 +24,10 @@ export default async function Payment({ params }: PaymentPageProps) {
     redirect(`/login?redirect=/payment/${params.bookingId}`)
   }
 
+  const serviceClient = await createServiceClient()
+
   const [{ data: booking }, { data: profile }] = await Promise.all([
-    supabase
+    serviceClient
       .from('bookings')
       .select(`
         *,
@@ -41,7 +43,7 @@ export default async function Payment({ params }: PaymentPageProps) {
       .eq('id', params.bookingId)
       .eq('user_id', user.id)
       .single(),
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    serviceClient.from('profiles').select('*').eq('id', user.id).single(),
   ])
 
   if (!booking) {

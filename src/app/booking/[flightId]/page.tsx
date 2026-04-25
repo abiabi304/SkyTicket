@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
@@ -25,8 +25,10 @@ export default async function BookingPage({ params, searchParams }: BookingPageP
     redirect(`/login?redirect=/booking/${params.flightId}?pax=${searchParams.pax ?? '1'}`)
   }
 
+  const serviceClient = await createServiceClient()
+
   const [{ data: flight }, { data: profile }] = await Promise.all([
-    supabase
+    serviceClient
       .from('flights')
       .select(`
         *,
@@ -36,7 +38,7 @@ export default async function BookingPage({ params, searchParams }: BookingPageP
       `)
       .eq('id', params.flightId)
       .single(),
-    supabase
+    serviceClient
       .from('profiles')
       .select('*')
       .eq('id', user.id)

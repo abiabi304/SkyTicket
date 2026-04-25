@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
@@ -20,7 +20,9 @@ export default async function ProfilePage() {
     redirect('/login?redirect=/profile')
   }
 
-  const { data: profile } = await supabase
+  const serviceClient = await createServiceClient()
+
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('*')
     .eq('id', user.id)
