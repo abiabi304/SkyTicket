@@ -11,7 +11,9 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { CancelBookingButton } from '@/components/my-bookings/cancel-booking-button'
+import { CalendarClock, Info } from 'lucide-react'
 import { formatRupiah, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils'
+import { MAX_RESCHEDULES } from '@/lib/constants'
 import type { BookingWithDetails, Profile } from '@/lib/types'
 import type { Metadata } from 'next'
 
@@ -56,6 +58,14 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
     payment: Array.isArray(booking.payment) ? booking.payment[0] ?? null : booking.payment,
   } as unknown as BookingWithDetails
 
+  // Check if reschedule is possible
+  const departureTime = new Date(typedBooking.flight.departure_time)
+  const hoursUntilDeparture = (departureTime.getTime() - Date.now()) / (1000 * 60 * 60)
+  const canReschedule =
+    typedBooking.status === 'paid' &&
+    typedBooking.reschedule_count < MAX_RESCHEDULES &&
+    hoursUntilDeparture >= 24
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar user={profile as Profile} />
@@ -87,6 +97,36 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
                 </div>
               </CardContent>
             </Card>
+
+            {/* Rescheduling status banner */}
+            {typedBooking.status === 'rescheduling' && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="flex items-start gap-3 pt-4">
+                  <Info className="mt-0.5 size-5 shrink-0 text-blue-600" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium">Proses Reschedule Sedang Berlangsung</p>
+                    <p className="mt-1 text-blue-700">
+                      Booking ini sedang dalam proses reschedule. Selesaikan pembayaran selisih harga atau tunggu hingga proses selesai.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Reschedule info */}
+            {typedBooking.reschedule_count > 0 && (
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardContent className="flex items-center gap-3 pt-4">
+                  <CalendarClock className="size-4 shrink-0 text-blue-600" />
+                  <p className="text-sm text-blue-700">
+                    Telah di-reschedule {typedBooking.reschedule_count}x
+                    {typedBooking.credit_balance > 0 && (
+                      <> • Saldo kredit: {formatRupiah(typedBooking.credit_balance)}</>
+                    )}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Flight info */}
             <FlightSummaryCard flight={typedBooking.flight} />
@@ -122,6 +162,29 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
             )}
 
             {/* Actions */}
+            {typedBooking.status === 'paid' && (
+              <div className="space-y-3">
+                {canReschedule && (
+                  <Button asChild variant="outline" className="w-full gap-2" size="lg">
+                    <Link href={`/reschedule/${typedBooking.id}`}>
+                      <CalendarClock className="size-4" />
+                      Reschedule Penerbangan
+                    </Link>
+                  </Button>
+                )}
+                {!canReschedule && typedBooking.reschedule_count >= MAX_RESCHEDULES && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    Batas reschedule telah tercapai ({MAX_RESCHEDULES}x)
+                  </p>
+                )}
+                {!canReschedule && hoursUntilDeparture < 24 && typedBooking.reschedule_count < MAX_RESCHEDULES && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    Reschedule tidak tersedia (kurang dari 24 jam sebelum keberangkatan)
+                  </p>
+                )}
+              </div>
+            )}
+
             {typedBooking.status === 'pending' && (
               <div className="space-y-3">
                 <Button asChild className="w-full" size="lg">
