@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { CancelBookingButton } from '@/components/my-bookings/cancel-booking-button'
+import { CancelRescheduleButton } from '@/components/my-bookings/cancel-reschedule-button'
 import { CalendarClock, Info } from 'lucide-react'
 import { formatRupiah, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils'
 import { MAX_RESCHEDULES } from '@/lib/constants'
@@ -102,17 +103,20 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
               </CardContent>
             </Card>
 
-            {/* Rescheduling status banner */}
+            {/* Rescheduling status banner + actions */}
             {typedBooking.status === 'rescheduling' && (
               <Card className="border-blue-200 bg-blue-50">
-                <CardContent className="flex items-start gap-3 pt-4">
-                  <Info className="mt-0.5 size-5 shrink-0 text-blue-600" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium">Proses Reschedule Sedang Berlangsung</p>
-                    <p className="mt-1 text-blue-700">
-                      Booking ini sedang dalam proses reschedule. Selesaikan pembayaran selisih harga atau tunggu hingga proses selesai.
-                    </p>
+                <CardContent className="space-y-3 pt-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="mt-0.5 size-5 shrink-0 text-blue-600" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">Proses Reschedule Sedang Berlangsung</p>
+                      <p className="mt-1 text-blue-700">
+                        Menunggu pembayaran selisih harga. Anda dapat membatalkan reschedule untuk mengembalikan booking ke status semula.
+                      </p>
+                    </div>
                   </div>
+                  <CancelRescheduleButton bookingId={typedBooking.id} />
                 </CardContent>
               </Card>
             )}

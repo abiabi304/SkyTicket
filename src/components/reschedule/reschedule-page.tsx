@@ -96,7 +96,10 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
         throw new Error(payData.error || 'Gagal membuat pembayaran')
       }
 
-      // Step 3: Show Midtrans Snap popup (not embed — avoids state issues)
+      // Step 3: Show Midtrans Snap popup
+      // Hide any existing snap instance first to avoid state conflict
+      try { window.snap.hide() } catch { /* no-op if nothing to hide */ }
+
       window.snap.pay(payData.snapToken, {
         onSuccess: () => {
           setSuccess(true)

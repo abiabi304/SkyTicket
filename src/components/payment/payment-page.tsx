@@ -107,6 +107,9 @@ export function PaymentPage({ booking }: PaymentPageProps) {
 
       setSnapShown(true)
 
+      // Hide any existing snap instance to avoid state conflict
+      try { window.snap.hide() } catch { /* no-op */ }
+
       window.snap.embed(data.snapToken, {
         embedId: 'snap-container',
         onSuccess: () => {
