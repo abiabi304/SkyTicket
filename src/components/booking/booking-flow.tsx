@@ -32,6 +32,7 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showErrors, setShowErrors] = useState(false)
 
   const [passengers, setPassengers] = useState<PassengerInput[]>(
     Array.from({ length: passengerCount }, (_, i) => ({
@@ -80,7 +81,7 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
     let total = 0
     const labels = Array.from(selectedSeats.values())
     for (let i = 0; i < labels.length; i++) {
-      const seat = seatLookup.get(labels[i])
+      const seat = seatLookup.get(labels[i]!)
       if (seat) total += seat.price_modifier
     }
     return total
@@ -91,22 +92,42 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
   const hasSeatSelection = seatLayout !== null && flightSeats.length > 0
 
   const validateForm = (): boolean => {
+    let valid = true
     for (let i = 0; i < passengers.length; i++) {
-      if (passengers[i].full_name.length < 3) {
+      const p = passengers[i]!
+      if (p.full_name.length < 3) {
         toast.error(`Nama penumpang ${i + 1} minimal 3 karakter`)
-        return false
+        valid = false
+        break
       }
-      if (!passengers[i].id_number) {
-        toast.error(`Nomor identitas penumpang ${i + 1} wajib diisi`)
-        return false
+      if (!p.id_number || p.id_number.length < 6) {
+        toast.error(`Nomor identitas penumpang ${i + 1} wajib diisi (minimal 6 karakter)`)
+        valid = false
+        break
       }
     }
-    if (!contactEmail) {
+    if (valid && !contactEmail) {
       toast.error('Email kontak wajib diisi')
+      valid = false
+    }
+    if (valid && contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      toast.error('Format email tidak valid')
+      valid = false
+    }
+    if (valid && !contactPhone) {
+      toast.error('Nomor telepon kontak wajib diisi')
+      valid = false
+    }
+    if (valid && contactPhone && !/^(08|\+62|62)\d{7,12}$/.test(contactPhone)) {
+      toast.error('Format nomor telepon tidak valid')
+      valid = false
+    }
+    if (!valid) {
+      setShowErrors(true)
       return false
     }
-    if (!contactPhone) {
-      toast.error('Nomor telepon kontak wajib diisi')
+    if (totalPrice <= 0) {
+      toast.error('Harga tidak valid. Silakan muat ulang halaman.')
       return false
     }
     return true
@@ -125,7 +146,8 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
       const seatAssignments: Record<number, string> = {}
       const entries = Array.from(selectedSeats.entries())
       for (let i = 0; i < entries.length; i++) {
-        seatAssignments[entries[i][0]] = entries[i][1]
+        const entry = entries[i]!
+        seatAssignments[entry[0]] = entry[1]
       }
 
       const response = await fetch('/api/bookings/create', {
@@ -174,12 +196,14 @@ export function BookingFlow({ flight, profile, passengerCount }: BookingFlowProp
           <PassengerForm
             passengers={passengers}
             onChange={setPassengers}
+            showErrors={showErrors}
           />
           <ContactForm
             email={contactEmail}
             phone={contactPhone}
             onEmailChange={setContactEmail}
             onPhoneChange={setContactPhone}
+            showErrors={showErrors}
           />
 
           {/* Seat selection — only if aircraft has seat data */}

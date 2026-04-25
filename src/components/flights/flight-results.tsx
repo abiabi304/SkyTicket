@@ -63,7 +63,7 @@ export function FlightResults({
     if (timeFilter.length > 0) {
       result = result.filter((f) => {
         const match = f.departure_time.match(/T(\d{2}):/)
-        const hour = match ? parseInt(match[1], 10) : new Date(f.departure_time).getHours()
+        const hour = match?.[1] ? parseInt(match[1], 10) : new Date(f.departure_time).getHours()
         return timeFilter.some((t) => {
           if (t === 'pagi') return hour >= 6 && hour < 12
           if (t === 'siang') return hour >= 12 && hour < 18
@@ -114,7 +114,7 @@ export function FlightResults({
     if (!isMonthSearch) return null
     const groups = new Map<string, FlightWithDetails[]>()
     for (const f of paginatedFlights) {
-      const dateKey = f.departure_time.split('T')[0]
+      const dateKey = f.departure_time.split('T')[0] ?? ''
       const existing = groups.get(dateKey)
       if (existing) {
         existing.push(f)

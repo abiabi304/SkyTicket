@@ -80,15 +80,17 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
   }
 
   // Date filter: specific date OR entire month
+  // Use UTC-based range that covers all Indonesian timezones (WIB+7, WITA+8, WIT+9)
+  // Start at 00:00 WIB (17:00 UTC prev day) to catch earliest timezone
+  // End at 23:59 WIT (14:59 UTC next day) to catch latest timezone
   if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const startOfDay = `${date}T00:00:00+07:00`
-    const endOfDay = `${date}T23:59:59.999+07:00`
+    const startOfDay = `${date}T00:00:00+09:00`  // 00:00 WIT (earliest start)
+    const endOfDay = `${date}T23:59:59.999+07:00` // 23:59 WIB (latest end)
     query = query.gte('departure_time', startOfDay).lte('departure_time', endOfDay)
   } else if (month && /^\d{4}-\d{2}$/.test(month)) {
-    const [year, mon] = month.split('-').map(Number)
-    const startOfMonth = `${month}-01T00:00:00+07:00`
-    // Last day of month
-    const lastDay = new Date(year, mon, 0).getDate()
+    const parts = month.split('-').map(Number)
+    const startOfMonth = `${month}-01T00:00:00+09:00`
+    const lastDay = new Date(parts[0] ?? 2026, parts[1] ?? 1, 0).getDate()
     const endOfMonth = `${month}-${String(lastDay).padStart(2, '0')}T23:59:59.999+07:00`
     query = query.gte('departure_time', startOfMonth).lte('departure_time', endOfMonth)
   }

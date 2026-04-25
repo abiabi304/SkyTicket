@@ -75,7 +75,7 @@ export function SeatSelection({
 
     for (let i = 0; i < passengers.length; i++) {
       if (!next.has(i) && availIdx < available.length) {
-        next.set(i, available[availIdx].seat_label)
+        next.set(i, available[availIdx]!.seat_label)
         availIdx++
       }
     }
@@ -87,7 +87,7 @@ export function SeatSelection({
     let total = 0
     const labels = Array.from(selectedSeats.values())
     for (let i = 0; i < labels.length; i++) {
-      const seat = seatMap.get(labels[i])
+      const seat = seatMap.get(labels[i]!)
       if (seat) total += seat.price_modifier
     }
     return total

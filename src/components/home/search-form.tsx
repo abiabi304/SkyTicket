@@ -69,8 +69,8 @@ export function SearchForm({ airports }: SearchFormProps) {
   const selectedMonth = format(departureDate, 'yyyy-MM')
 
   const handleMonthChange = (value: string) => {
-    const [year, month] = value.split('-').map(Number)
-    setDepartureDate(new Date(year, month - 1, 1))
+    const parts = value.split('-').map(Number)
+    setDepartureDate(new Date(parts[0] ?? 2026, (parts[1] ?? 1) - 1, 1))
   }
 
   const handleSubmit = () => {

@@ -59,7 +59,7 @@ function FilterContent({
           max={maxPrice}
           step={100000}
           value={[priceRange[0], priceRange[1]]}
-          onValueChange={(v) => onPriceRangeChange([v[0], v[1]])}
+          onValueChange={(v) => onPriceRangeChange([v[0]!, v[1]!])}
           className="mb-2"
         />
         <div className="flex justify-between text-xs text-muted-foreground">

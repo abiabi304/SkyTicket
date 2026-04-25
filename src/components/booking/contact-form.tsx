@@ -11,9 +11,10 @@ interface ContactFormProps {
   phone: string
   onEmailChange: (email: string) => void
   onPhoneChange: (phone: string) => void
+  showErrors?: boolean
 }
 
-export function ContactForm({ email, phone, onEmailChange, onPhoneChange }: ContactFormProps) {
+export function ContactForm({ email, phone, onEmailChange, onPhoneChange, showErrors = false }: ContactFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const clearError = (field: string) => {
@@ -64,8 +65,11 @@ export function ContactForm({ email, phone, onEmailChange, onPhoneChange }: Cont
             onBlur={(e) => validateEmail(e.target.value)}
             placeholder="email@contoh.com"
           />
-          {errors.email && (
-            <p className="text-xs text-destructive mt-1">{errors.email}</p>
+          {(errors.email || (showErrors && !email)) && (
+            <p className="text-xs text-destructive mt-1">{errors.email || 'Email wajib diisi'}</p>
+          )}
+          {showErrors && email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !errors.email && (
+            <p className="text-xs text-destructive mt-1">Format email tidak valid</p>
           )}
         </div>
         <div className="space-y-2">
@@ -81,8 +85,11 @@ export function ContactForm({ email, phone, onEmailChange, onPhoneChange }: Cont
             onBlur={(e) => validatePhone(e.target.value)}
             placeholder="08xxxxxxxxxx"
           />
-          {errors.phone && (
-            <p className="text-xs text-destructive mt-1">{errors.phone}</p>
+          {(errors.phone || (showErrors && !phone)) && (
+            <p className="text-xs text-destructive mt-1">{errors.phone || 'Nomor telepon wajib diisi'}</p>
+          )}
+          {showErrors && phone && !/^(08|\+62|62)\d{7,12}$/.test(phone) && !errors.phone && (
+            <p className="text-xs text-destructive mt-1">Format nomor telepon tidak valid</p>
           )}
         </div>
       </CardContent>

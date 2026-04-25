@@ -26,7 +26,7 @@ function getSeatState(
 
   const entries = Array.from(selectedSeats.entries())
   for (let i = 0; i < entries.length; i++) {
-    const [pIdx, label] = entries[i]
+    const [pIdx, label] = entries[i]!
     if (label === seat.seat_label) {
       if (pIdx === currentPassengerIndex) {
         return { state: 'selected-current', passengerNumber: pIdx + 1 }

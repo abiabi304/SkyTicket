@@ -11,14 +11,15 @@ import type { PassengerInput } from '@/lib/types'
 interface PassengerFormProps {
   passengers: PassengerInput[]
   onChange: (passengers: PassengerInput[]) => void
+  showErrors?: boolean
 }
 
-export function PassengerForm({ passengers, onChange }: PassengerFormProps) {
+export function PassengerForm({ passengers, onChange, showErrors = false }: PassengerFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const updatePassenger = (index: number, field: keyof PassengerInput, value: string) => {
     const updated = [...passengers]
-    updated[index] = { ...updated[index], [field]: value }
+    updated[index] = { ...updated[index]!, [field]: value }
     onChange(updated)
     // Clear error when user starts typing
     const key = `${index}-${field}`
@@ -46,6 +47,19 @@ export function PassengerForm({ passengers, onChange }: PassengerFormProps) {
     }
   }
 
+  // Compute showErrors-driven errors for empty required fields
+  const getFieldError = (index: number, field: keyof PassengerInput): string | undefined => {
+    const key = `${index}-${field}`
+    // Blur-based errors take priority
+    if (errors[key]) return errors[key]
+    // When showErrors is true, show errors for empty/invalid fields
+    if (!showErrors) return undefined
+    const value = passengers[index]?.[field]
+    if (field === 'full_name' && (!value || value.length < 3)) return 'Nama lengkap minimal 3 karakter'
+    if (field === 'id_number' && (!value || value.length < 6)) return 'Nomor identitas minimal 6 karakter'
+    return undefined
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -69,8 +83,8 @@ export function PassengerForm({ passengers, onChange }: PassengerFormProps) {
                 placeholder="Sesuai KTP/Paspor"
                 minLength={3}
               />
-              {errors[`${index}-full_name`] && (
-                <p className="text-xs text-destructive mt-1">{errors[`${index}-full_name`]}</p>
+              {getFieldError(index, 'full_name') && (
+                <p className="text-xs text-destructive mt-1">{getFieldError(index, 'full_name')}</p>
               )}
             </div>
 
@@ -107,8 +121,8 @@ export function PassengerForm({ passengers, onChange }: PassengerFormProps) {
                 onBlur={(e) => validateField(index, 'id_number', e.target.value)}
                 placeholder={passenger.id_type === 'ktp' ? '3171xxxxxxxxxxxx' : 'A12345678'}
               />
-              {errors[`${index}-id_number`] && (
-                <p className="text-xs text-destructive mt-1">{errors[`${index}-id_number`]}</p>
+              {getFieldError(index, 'id_number') && (
+                <p className="text-xs text-destructive mt-1">{getFieldError(index, 'id_number')}</p>
               )}
             </div>
           </div>
