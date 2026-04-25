@@ -40,6 +40,12 @@ export const SORT_OPTIONS = [
   { value: 'duration_asc', label: 'Durasi Tercepat' },
 ] as const
 
+// Midtrans Snap JS URL (client-safe, uses NEXT_PUBLIC_ env var)
+export const MIDTRANS_SNAP_JS_URL =
+  process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true'
+    ? 'https://app.midtrans.com/snap/snap.js'
+    : 'https://app.sandbox.midtrans.com/snap/snap.js'
+
 // WhatsApp CS
 export const CS_WHATSAPP_NUMBER = '6281234567890' // Ganti dengan nomor WA CS
 export const CS_WHATSAPP_MESSAGE = 'Halo SkyTicket, saya butuh bantuan.'

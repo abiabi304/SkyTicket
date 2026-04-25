@@ -16,6 +16,8 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Profile } from '@/lib/types'
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { cn } from '@/lib/utils'
 
 interface NavbarProps {
   user: Profile | null
@@ -23,8 +25,14 @@ interface NavbarProps {
 
 export function Navbar({ user }: NavbarProps) {
   const supabase = createClient()
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/'
+    return pathname === href || pathname.startsWith(href)
+  }
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -63,7 +71,10 @@ export function Navbar({ user }: NavbarProps) {
                     key={link.href}
                     href={link.href}
                     onClick={() => setOpen(false)}
-                    className="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    className={cn(
+                      'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent',
+                      isActive(link.href) && 'bg-accent text-foreground'
+                    )}
                   >
                     {link.label}
                   </Link>
@@ -73,14 +84,20 @@ export function Navbar({ user }: NavbarProps) {
                     <Link
                       href="/my-bookings"
                       onClick={() => setOpen(false)}
-                      className="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                      className={cn(
+                        'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent',
+                        isActive('/my-bookings') && 'bg-accent text-foreground'
+                      )}
                     >
                       Pesanan Saya
                     </Link>
                     <Link
                       href="/profile"
                       onClick={() => setOpen(false)}
-                      className="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                      className={cn(
+                        'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent',
+                        isActive('/profile') && 'bg-accent text-foreground'
+                      )}
                     >
                       Profil
                     </Link>
@@ -90,7 +107,10 @@ export function Navbar({ user }: NavbarProps) {
                   <Link
                     href="/admin"
                     onClick={() => setOpen(false)}
-                    className="rounded-lg px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-accent"
+                    className={cn(
+                      'rounded-lg px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-accent',
+                      isActive('/admin') && 'bg-accent'
+                    )}
                   >
                     <span className="flex items-center gap-2">
                       <Shield className="size-4" />
@@ -115,7 +135,12 @@ export function Navbar({ user }: NavbarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className={cn(
+                'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-foreground',
+                isActive(link.href)
+                  ? 'bg-accent text-foreground'
+                  : 'text-muted-foreground'
+              )}
             >
               {link.label}
             </Link>
@@ -123,7 +148,12 @@ export function Navbar({ user }: NavbarProps) {
           {user && user.role !== 'admin' && (
             <Link
               href="/my-bookings"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className={cn(
+                'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-foreground',
+                isActive('/my-bookings')
+                  ? 'bg-accent text-foreground'
+                  : 'text-muted-foreground'
+              )}
             >
               Pesanan Saya
             </Link>
@@ -131,7 +161,10 @@ export function Navbar({ user }: NavbarProps) {
           {user && user.role === 'admin' && (
             <Link
               href="/admin"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-accent"
+              className={cn(
+                'rounded-lg px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-accent',
+                isActive('/admin') && 'bg-accent'
+              )}
             >
               Admin Panel
             </Link>
@@ -143,7 +176,7 @@ export function Navbar({ user }: NavbarProps) {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative size-8 rounded-full">
+                <Button variant="ghost" className="relative size-8 rounded-full" aria-label="Menu pengguna">
                   <Avatar className="size-8">
                     <AvatarImage src={user.avatar_url ?? undefined} alt={user.full_name} />
                     <AvatarFallback className="bg-primary text-primary-foreground text-xs">

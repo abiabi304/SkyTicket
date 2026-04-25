@@ -132,7 +132,7 @@ export function FlightResults({
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         )}
         <div className="mt-1 flex items-center gap-2">
-          <Badge variant="secondary">
+          <Badge variant="secondary" aria-live="polite">
             {filteredAndSorted.length} penerbangan
           </Badge>
           {isMonthSearch && groupedByDate && (

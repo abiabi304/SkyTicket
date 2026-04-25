@@ -19,7 +19,13 @@ export function PageHeader({ title, subtitle, showBack = false }: PageHeaderProp
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.back()}
+          onClick={() => {
+            if (window.history.length > 1) {
+              router.back()
+            } else {
+              router.push('/')
+            }
+          }}
           className="mt-0.5 shrink-0"
         >
           <ArrowLeft className="size-5" />

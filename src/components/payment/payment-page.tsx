@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, CreditCard, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatRupiah } from '@/lib/utils'
+import { MIDTRANS_SNAP_JS_URL } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import type { BookingWithDetails } from '@/lib/types'
 
@@ -162,7 +163,7 @@ export function PaymentPage({ booking }: PaymentPageProps) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
       <Script
-        src={process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'}
+        src={MIDTRANS_SNAP_JS_URL}
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
         onReady={() => setSnapReady(true)}
         onError={() => setSnapError(true)}

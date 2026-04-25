@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { ArrowRightLeft, CalendarIcon, Minus, Plus, Search } from 'lucide-react'
+import { ArrowRightLeft, CalendarIcon, Loader2, Minus, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -47,6 +48,7 @@ function getMonthOptions() {
 
 export function SearchForm({ airports }: SearchFormProps) {
   const router = useRouter()
+  const [searching, setSearching] = useState(false)
   const {
     from,
     to,
@@ -84,6 +86,8 @@ export function SearchForm({ airports }: SearchFormProps) {
       toast.error('Bandara keberangkatan dan tujuan tidak boleh sama')
       return
     }
+
+    setSearching(true)
 
     if (searchByMonth) {
       const monthStr = format(departureDate, 'yyyy-MM')
@@ -243,9 +247,18 @@ export function SearchForm({ airports }: SearchFormProps) {
       </div>
 
       {/* Submit */}
-      <Button onClick={handleSubmit} className="h-11 w-full text-base md:h-12" size="lg">
-        <Search className="mr-2 size-5" />
-        Cari Penerbangan
+      <Button onClick={handleSubmit} disabled={searching} className="h-11 w-full text-base md:h-12" size="lg">
+        {searching ? (
+          <>
+            <Loader2 className="mr-2 size-5 animate-spin" />
+            Mencari...
+          </>
+        ) : (
+          <>
+            <Search className="mr-2 size-5" />
+            Cari Penerbangan
+          </>
+        )}
       </Button>
     </div>
   )

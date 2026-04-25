@@ -78,6 +78,7 @@ export function BookingTimer({ expiresAt, bookingId }: BookingTimerProps) {
         </p>
       </div>
       <p
+        aria-live="polite"
         className={cn(
           'mt-1 text-2xl font-bold tabular-nums',
           isUrgent ? 'text-destructive' : 'text-yellow-800'

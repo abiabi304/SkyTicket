@@ -158,6 +158,7 @@ export function SeatMap({
                       type="button"
                       disabled={isDisabled}
                       onClick={() => onSeatSelect(seatLabel)}
+                      aria-label={`Kursi ${seatLabel}, ${getSeatTypeLabel(seat.seat_type)}`}
                       title={`${seatLabel} - ${getSeatTypeLabel(seat.seat_type)}${seat.price_modifier > 0 ? ` (+${formatRupiah(seat.price_modifier)})` : ''}${hasExtraLegroom ? ' - Extra Legroom' : ''}`}
                       className={cn(
                         'group relative flex items-center justify-center rounded-md text-xs font-semibold transition-all duration-150',

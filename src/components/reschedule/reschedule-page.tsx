@@ -15,7 +15,7 @@ import { Loader2, CheckCircle2, ArrowRight, CalendarClock, Plane } from 'lucide-
 import { toast } from 'sonner'
 import { formatRupiah } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { RESCHEDULE_FEE, MAX_RESCHEDULES } from '@/lib/constants'
+import { RESCHEDULE_FEE, MAX_RESCHEDULES, MIDTRANS_SNAP_JS_URL } from '@/lib/constants'
 import type { BookingWithDetails, FlightWithDetails, RescheduleInitResult } from '@/lib/types'
 
 interface ReschedulePageProps {
@@ -216,7 +216,7 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-32 md:px-6 md:pb-6">
       <Script
-        src={process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'}
+        src={MIDTRANS_SNAP_JS_URL}
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
         onReady={() => setSnapReady(true)}
         strategy="afterInteractive"
