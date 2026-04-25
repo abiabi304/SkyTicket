@@ -39,3 +39,7 @@ export const SORT_OPTIONS = [
   { value: 'departure_asc', label: 'Berangkat Paling Awal' },
   { value: 'duration_asc', label: 'Durasi Tercepat' },
 ] as const
+
+// WhatsApp CS
+export const CS_WHATSAPP_NUMBER = '6281234567890' // Ganti dengan nomor WA CS
+export const CS_WHATSAPP_MESSAGE = 'Halo SkyTicket, saya butuh bantuan.'

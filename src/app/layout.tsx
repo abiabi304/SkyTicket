@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import localFont from "next/font/local"
 import { Toaster } from "@/components/ui/sonner"
+import { WhatsAppButton } from "@/components/shared/whatsapp-button"
 import { cn } from "@/lib/utils"
 import "./globals.css"
 
@@ -43,6 +44,7 @@ export default function RootLayout({
     <html lang="id" className={cn(geistSans.variable, geistMono.variable)} suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
         {children}
+        <WhatsAppButton />
         <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
