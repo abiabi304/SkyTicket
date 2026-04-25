@@ -80,6 +80,7 @@ CREATE TABLE public.flights (
 );
 
 -- Flight Seats (1 row per seat per flight)
+-- NOTE: passenger_id FK is added via ALTER TABLE after passengers table is created
 CREATE TABLE public.flight_seats (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   flight_id UUID NOT NULL REFERENCES public.flights(id) ON DELETE CASCADE,
@@ -90,7 +91,7 @@ CREATE TABLE public.flight_seats (
   column_label CHAR(1) NOT NULL,
   price_modifier BIGINT NOT NULL DEFAULT 0,
   is_available BOOLEAN NOT NULL DEFAULT true,
-  passenger_id UUID REFERENCES public.passengers(id),
+  passenger_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(flight_id, seat_label)
 );
@@ -124,6 +125,11 @@ CREATE TABLE public.passengers (
   seat_number VARCHAR(5),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add FK from flight_seats to passengers (deferred to avoid forward reference)
+ALTER TABLE public.flight_seats
+  ADD CONSTRAINT flight_seats_passenger_id_fkey
+  FOREIGN KEY (passenger_id) REFERENCES public.passengers(id);
 
 -- Payments
 CREATE TABLE public.payments (
