@@ -1,24 +1,45 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus, Pencil } from 'lucide-react'
+import { Plus, Pencil, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { DeleteItemButton } from '@/components/admin/delete-item-button'
+import { AdminSearch } from '@/components/admin/admin-search'
 import type { Airline } from '@/lib/types'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Kelola Maskapai | Admin' }
 
-export default async function AdminAirlinesPage() {
+export default async function AdminAirlinesPage({
+  searchParams,
+}: {
+  searchParams: { search?: string }
+}) {
   const supabase = await createClient()
-  const { data: airlines } = await supabase.from('airlines').select('*').order('name')
+  let query = supabase.from('airlines').select('*').order('name')
+
+  if (searchParams.search) {
+    query = query.or(`name.ilike.%${searchParams.search}%,code.ilike.%${searchParams.search}%`)
+  }
+
+  const { data: airlines } = await query
+  const typedAirlines = (airlines ?? []) as Airline[]
 
   return (
     <div className="space-y-6 pt-14 md:pt-0">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Maskapai</h1>
-          <p className="text-sm text-muted-foreground">{(airlines ?? []).length} maskapai</p>
+          <h1 className="text-2xl font-bold tracking-tight">Maskapai</h1>
+          <p className="text-sm text-muted-foreground">Kelola data maskapai penerbangan</p>
         </div>
         <Button asChild>
           <Link href="/admin/airlines/new">
@@ -28,29 +49,64 @@ export default async function AdminAirlinesPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {(airlines as Airline[] ?? []).map((airline) => (
-          <Card key={airline.id}>
-            <CardContent className="flex items-center justify-between pt-6">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {airline.code}
-                </div>
-                <div>
-                  <p className="font-medium">{airline.name}</p>
-                  <p className="text-xs text-muted-foreground">Kode: {airline.code}</p>
-                </div>
+      {/* Search */}
+      <AdminSearch placeholder="Cari nama atau kode maskapai..." basePath="/admin/airlines" />
+
+      {/* Data Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold">
+            {typedAirlines.length} maskapai
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {typedAirlines.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
+                <Building2 className="size-6 text-muted-foreground" />
               </div>
-              <div className="flex gap-1">
-                <Button variant="outline" size="icon" asChild>
-                  <Link href={`/admin/airlines/${airline.id}`}><Pencil className="size-4" /></Link>
-                </Button>
-                <DeleteItemButton table="airlines" itemId={airline.id} itemName={airline.name} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Tidak ada maskapai ditemukan
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="font-semibold">Kode</TableHead>
+                  <TableHead className="font-semibold">Nama Maskapai</TableHead>
+                  <TableHead className="font-semibold text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {typedAirlines.map((airline) => (
+                  <TableRow key={airline.id}>
+                    <TableCell>
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                        {airline.code}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-medium">{airline.name}</p>
+                      <p className="text-xs text-muted-foreground">Kode: {airline.code}</p>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button variant="outline" size="icon" className="size-8" asChild>
+                          <Link href={`/admin/airlines/${airline.id}`}>
+                            <Pencil className="size-3.5" />
+                          </Link>
+                        </Button>
+                        <DeleteItemButton table="airlines" itemId={airline.id} itemName={airline.name} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

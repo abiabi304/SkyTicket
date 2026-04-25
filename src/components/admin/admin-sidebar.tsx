@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Plane,
@@ -107,14 +107,12 @@ function SidebarContent({ profile, pathname, onLogout }: {
 
 export function AdminSidebar({ profile }: AdminSidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const [open, setOpen] = useState(false)
 
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
+    window.location.href = '/'
   }
 
   return (
