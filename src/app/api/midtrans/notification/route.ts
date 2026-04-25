@@ -31,28 +31,22 @@ export async function POST(request: Request) {
 
     // Determine payment status
     let paymentStatus = 'pending'
-    let bookingStatus = 'pending'
+    const isSuccess = (transaction_status === 'capture' || transaction_status === 'settlement')
+      && (fraud_status === 'accept' || !fraud_status)
 
-    if (transaction_status === 'capture' || transaction_status === 'settlement') {
-      if (fraud_status === 'accept' || !fraud_status) {
-        paymentStatus = 'settlement'
-        bookingStatus = 'paid'
-      }
+    if (isSuccess) {
+      paymentStatus = 'settlement'
     } else if (transaction_status === 'deny') {
       paymentStatus = 'deny'
-      bookingStatus = 'cancelled'
     } else if (transaction_status === 'cancel') {
       paymentStatus = 'cancel'
-      bookingStatus = 'cancelled'
     } else if (transaction_status === 'expire') {
       paymentStatus = 'expire'
-      bookingStatus = 'expired'
     } else if (transaction_status === 'pending') {
       paymentStatus = 'pending'
-      bookingStatus = 'pending'
     }
 
-    // Update payment
+    // Update payment record
     const { data: payment } = await supabase
       .from('payments')
       .update({
@@ -66,28 +60,70 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    if (payment) {
-      // Atomically update booking status only if currently pending
-      const { data: updatedBooking } = await supabase
-        .from('bookings')
-        .update({
-          status: bookingStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', payment.booking_id)
-        .eq('status', 'pending')
-        .select('flight_id, passenger_count')
-        .single()
+    if (!payment) {
+      return NextResponse.json({ status: 'ok' })
+    }
 
-      // Restore seats atomically if booking was cancelled/expired
-      if (
-        updatedBooking &&
-        (bookingStatus === 'cancelled' || bookingStatus === 'expired')
-      ) {
-        await supabase.rpc('restore_seats', {
-          p_flight_id: updatedBooking.flight_id,
-          p_count: updatedBooking.passenger_count,
-        })
+    // Check if this is a reschedule payment (order_id starts with RSC-)
+    const isReschedulePayment = (order_id as string).startsWith('RSC-')
+
+    if (isReschedulePayment) {
+      // Handle reschedule payment
+      if (isSuccess) {
+        // Find the pending reschedule linked to this payment
+        const { data: reschedule } = await supabase
+          .from('reschedules')
+          .select('id')
+          .eq('payment_id', payment.id)
+          .eq('status', 'pending')
+          .single()
+
+        if (reschedule) {
+          await supabase.rpc('complete_reschedule', {
+            p_reschedule_id: reschedule.id,
+            p_payment_id: payment.id,
+          })
+        }
+      } else if (paymentStatus === 'deny' || paymentStatus === 'cancel' || paymentStatus === 'expire') {
+        // Payment failed — expire the reschedule (reverse seat swap)
+        const { data: reschedule } = await supabase
+          .from('reschedules')
+          .select('id')
+          .eq('payment_id', payment.id)
+          .eq('status', 'pending')
+          .single()
+
+        if (reschedule) {
+          await supabase.rpc('expire_reschedule', {
+            p_reschedule_id: reschedule.id,
+          })
+        }
+      }
+    } else {
+      // Handle regular booking payment
+      if (isSuccess) {
+        await supabase
+          .from('bookings')
+          .update({ status: 'paid', updated_at: new Date().toISOString() })
+          .eq('id', payment.booking_id)
+          .eq('status', 'pending')
+      } else if (paymentStatus === 'deny' || paymentStatus === 'cancel' || paymentStatus === 'expire') {
+        const bookingStatus = paymentStatus === 'expire' ? 'expired' : 'cancelled'
+
+        const { data: updatedBooking } = await supabase
+          .from('bookings')
+          .update({ status: bookingStatus, updated_at: new Date().toISOString() })
+          .eq('id', payment.booking_id)
+          .eq('status', 'pending')
+          .select('flight_id, passenger_count')
+          .single()
+
+        if (updatedBooking) {
+          await supabase.rpc('restore_seats', {
+            p_flight_id: updatedBooking.flight_id,
+            p_count: updatedBooking.passenger_count,
+          })
+        }
       }
     }
 
