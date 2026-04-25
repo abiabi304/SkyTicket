@@ -58,6 +58,29 @@ export async function POST(request: Request) {
     const orderId = `SKY-${typedBooking.booking_code}-${Date.now()}`
     const snap = createSnapClient()
 
+    // Build item details — Midtrans requires sum(price*qty) === gross_amount
+    const itemDetails: Array<{ id: string; price: number; quantity: number; name: string }> = []
+
+    // Base ticket price
+    const baseTotal = typedBooking.flight.price * typedBooking.passenger_count
+    itemDetails.push({
+      id: typedBooking.flight.id,
+      price: typedBooking.flight.price,
+      quantity: typedBooking.passenger_count,
+      name: `${typedBooking.flight.airline.name} ${typedBooking.flight.flight_number} (${typedBooking.flight.departure_airport.code}-${typedBooking.flight.arrival_airport.code})`,
+    })
+
+    // Seat modifier (difference between total_price and base ticket)
+    const seatModifier = typedBooking.total_price - baseTotal
+    if (seatModifier > 0) {
+      itemDetails.push({
+        id: 'seat-modifier',
+        price: seatModifier,
+        quantity: 1,
+        name: 'Biaya pemilihan kursi',
+      })
+    }
+
     const parameter = {
       transaction_details: {
         order_id: orderId,
@@ -68,14 +91,7 @@ export async function POST(request: Request) {
         email: typedBooking.contact_email ?? user.email,
         phone: typedBooking.contact_phone ?? '',
       },
-      item_details: [
-        {
-          id: typedBooking.flight.id,
-          price: typedBooking.flight.price,
-          quantity: typedBooking.passenger_count,
-          name: `${typedBooking.flight.airline.name} ${typedBooking.flight.flight_number} (${typedBooking.flight.departure_airport.code}-${typedBooking.flight.arrival_airport.code})`,
-        },
-      ],
+      item_details: itemDetails,
       callbacks: {
         finish: `${process.env.NEXT_PUBLIC_APP_URL}/payment/status/${bookingId}`,
       },
