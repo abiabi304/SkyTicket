@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'

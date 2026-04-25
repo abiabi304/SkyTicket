@@ -10,6 +10,8 @@ import { BookingCard } from '@/components/my-bookings/booking-card'
 import type { Profile } from '@/lib/types'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Pesanan Saya',
 }
@@ -20,7 +22,7 @@ export default async function MyBookingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?redirect=/my-bookings')
 
-  const [{ data: bookings }, { data: profile }] = await Promise.all([
+  const [{ data: bookings, error: bookingsError }, { data: profile }] = await Promise.all([
     supabase
       .from('bookings')
       .select(`
@@ -36,6 +38,10 @@ export default async function MyBookingsPage() {
       .order('created_at', { ascending: false }),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
   ])
+
+  if (bookingsError) {
+    console.error('Bookings fetch error:', bookingsError, 'User ID:', user.id)
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
