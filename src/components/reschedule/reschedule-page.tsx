@@ -107,11 +107,18 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
 
       if (!result.requires_payment) {
         setSuccess(true)
-        toast.success('Reschedule berhasil!')
+        const creditGained = result.price_difference < 0
+          ? Math.abs(result.price_difference) - result.reschedule_fee
+          : 0
+        if (creditGained > 0) {
+          toast.success(`Reschedule berhasil! Anda mendapat kredit ${formatRupiah(creditGained)} untuk reschedule berikutnya.`, { duration: 5000 })
+        } else {
+          toast.success('Reschedule berhasil!')
+        }
         setTimeout(() => {
           router.push(`/my-bookings/${booking.id}`)
           router.refresh()
-        }, 2000)
+        }, 2500)
         return
       }
 
@@ -173,6 +180,10 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
   }, [selectedFlight, booking.id, router])
 
   if (success) {
+    const creditGained = rescheduleResult && rescheduleResult.price_difference < 0
+      ? Math.abs(rescheduleResult.price_difference) - rescheduleResult.reschedule_fee
+      : 0
+
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -183,7 +194,17 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
           <p className="mb-1 font-mono text-sm text-muted-foreground">
             Kode Booking: {booking.booking_code}
           </p>
-          <p className="text-sm text-muted-foreground">
+          {creditGained > 0 && (
+            <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-2">
+              <p className="text-sm font-medium text-green-700">
+                Anda mendapat kredit {formatRupiah(creditGained)}
+              </p>
+              <p className="text-xs text-green-600">
+                Kredit otomatis digunakan saat reschedule berikutnya
+              </p>
+            </div>
+          )}
+          <p className="mt-3 text-sm text-muted-foreground">
             Mengalihkan ke detail pesanan...
           </p>
           <Loader2 className="mt-4 size-6 animate-spin text-primary" />

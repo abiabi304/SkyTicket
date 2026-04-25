@@ -139,11 +139,16 @@ export function ETicket({ booking }: ETicketProps) {
 
             <Separator className="mb-5" />
 
-            {/* Footer: price + status */}
+            {/* Footer: price + credit + status */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Total Pembayaran</p>
                 <p className="text-lg font-bold">{formatRupiah(booking.total_price)}</p>
+                {booking.credit_balance > 0 && (
+                  <p className="text-xs text-green-600">
+                    Saldo kredit: {formatRupiah(booking.credit_balance)}
+                  </p>
+                )}
               </div>
               <div className="rounded-full border-2 border-green-500 px-4 py-1.5">
                 <p className="text-sm font-bold text-green-600">LUNAS</p>

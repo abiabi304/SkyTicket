@@ -92,15 +92,26 @@ export function RescheduleSummary({
               <span className="text-primary">{formatRupiah(amountDue)}</span>
             </div>
           ) : creditGained > 0 ? (
-            <div className="flex justify-between font-bold">
-              <span>Kredit Diterima</span>
-              <span className="text-green-600">{formatRupiah(creditGained)}</span>
-            </div>
+            <>
+              <div className="flex justify-between font-bold">
+                <span>Kredit Diterima</span>
+                <span className="text-green-600">{formatRupiah(creditGained)}</span>
+              </div>
+              <p className="text-xs text-green-600">
+                Kredit akan disimpan di booking ini dan otomatis digunakan sebagai potongan harga saat reschedule berikutnya.
+              </p>
+            </>
           ) : (
             <div className="flex justify-between font-bold">
               <span>Total Bayar</span>
               <span className="text-green-600">Gratis</span>
             </div>
+          )}
+
+          {creditBalance > 0 && amountDue === 0 && creditGained === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Saldo kredit Anda digunakan untuk menutupi biaya reschedule.
+            </p>
           )}
         </div>
       </CardContent>

@@ -128,11 +128,31 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
                 <CardContent className="flex items-center gap-3 pt-4">
                   <CalendarClock className="size-4 shrink-0 text-blue-600" />
                   <p className="text-sm text-blue-700">
-                    Telah di-reschedule {typedBooking.reschedule_count}x
-                    {typedBooking.credit_balance > 0 && (
-                      <> • Saldo kredit: {formatRupiah(typedBooking.credit_balance)}</>
-                    )}
+                    Telah di-reschedule {typedBooking.reschedule_count}x dari maksimal {MAX_RESCHEDULES}x
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Credit balance card */}
+            {typedBooking.credit_balance > 0 && (
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                      <span className="text-lg font-bold text-green-600">Rp</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-green-800">Saldo Kredit</p>
+                      <p className="text-2xl font-bold text-green-700">{formatRupiah(typedBooking.credit_balance)}</p>
+                      <p className="mt-1 text-xs text-green-600">
+                        Kredit ini otomatis digunakan sebagai potongan harga saat Anda reschedule penerbangan ini lagi.
+                        {typedBooking.reschedule_count >= MAX_RESCHEDULES && (
+                          <> Batas reschedule telah tercapai — kredit tidak dapat digunakan.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}
