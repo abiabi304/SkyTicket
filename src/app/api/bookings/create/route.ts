@@ -14,9 +14,43 @@ export async function POST(request: Request) {
 
     const { flightId, passengers, contactEmail, contactPhone } = await request.json()
 
-    // Validate
+    // Validate required fields
     if (!flightId || !passengers?.length || !contactEmail || !contactPhone) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Validate passenger count
+    if (passengers.length < 1 || passengers.length > 5) {
+      return NextResponse.json({ error: 'Jumlah penumpang harus 1-5' }, { status: 400 })
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(contactEmail)) {
+      return NextResponse.json({ error: 'Format email tidak valid' }, { status: 400 })
+    }
+
+    // Validate phone format (Indonesian: 08xx or +628xx, 10-15 digits)
+    const phoneClean = contactPhone.replace(/[\s\-()]/g, '')
+    if (!/^(\+62|62|0)8\d{7,12}$/.test(phoneClean)) {
+      return NextResponse.json({ error: 'Format nomor telepon tidak valid' }, { status: 400 })
+    }
+
+    // Validate each passenger
+    for (let i = 0; i < passengers.length; i++) {
+      const p = passengers[i]
+      if (!p.full_name || p.full_name.trim().length < 3) {
+        return NextResponse.json({ error: `Nama penumpang ${i + 1} minimal 3 karakter` }, { status: 400 })
+      }
+      if (p.full_name.trim().length > 100) {
+        return NextResponse.json({ error: `Nama penumpang ${i + 1} terlalu panjang` }, { status: 400 })
+      }
+      if (!p.id_type || !['ktp', 'paspor'].includes(p.id_type)) {
+        return NextResponse.json({ error: `Tipe identitas penumpang ${i + 1} tidak valid` }, { status: 400 })
+      }
+      if (!p.id_number || p.id_number.trim().length < 6 || p.id_number.trim().length > 20) {
+        return NextResponse.json({ error: `Nomor identitas penumpang ${i + 1} tidak valid (6-20 karakter)` }, { status: 400 })
+      }
     }
 
     const passengerCount = passengers.length

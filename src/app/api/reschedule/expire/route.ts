@@ -17,6 +17,24 @@ export async function POST(request: Request) {
     }
 
     const serviceClient = await createServiceClient()
+
+    // Verify reschedule belongs to user's booking
+    const { data: reschedule } = await serviceClient
+      .from('reschedules')
+      .select('id, booking:bookings!inner(user_id)')
+      .eq('id', rescheduleId)
+      .eq('status', 'pending')
+      .single()
+
+    if (!reschedule) {
+      return NextResponse.json({ error: 'Reschedule not found' }, { status: 404 })
+    }
+
+    const booking = reschedule.booking as unknown as { user_id: string }
+    if (booking.user_id !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
     const { data: expired } = await serviceClient.rpc('expire_reschedule', {
       p_reschedule_id: rescheduleId,
     })

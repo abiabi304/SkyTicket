@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     const transaction = await snap.createTransaction(parameter)
 
     // Save payment record (use service client to bypass RLS)
-    await serviceClient.from('payments').insert({
+    const { error: paymentError } = await serviceClient.from('payments').insert({
       booking_id: bookingId,
       midtrans_order_id: orderId,
       gross_amount: typedBooking.total_price,
@@ -92,6 +92,14 @@ export async function POST(request: Request) {
       snap_token: transaction.token,
       snap_redirect_url: transaction.redirect_url,
     })
+
+    if (paymentError) {
+      console.error('Payment insert error:', JSON.stringify(paymentError))
+      return NextResponse.json(
+        { error: 'Failed to save payment record' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       snapToken: transaction.token,

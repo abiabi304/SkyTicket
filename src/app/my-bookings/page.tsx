@@ -42,11 +42,9 @@ export default async function MyBookingsPage() {
     serviceClient.from('profiles').select('*').eq('id', user.id).single(),
   ])
 
-  console.log('[MY-BOOKINGS] Query result:', {
-    userId: user.id,
-    bookingsCount: bookings?.length ?? 0,
-    error: bookingsError ? JSON.stringify(bookingsError) : 'null',
-  })
+  if (bookingsError) {
+    console.error('[MY-BOOKINGS] Fetch error:', bookingsError.message)
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
