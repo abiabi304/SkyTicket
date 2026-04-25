@@ -14,8 +14,11 @@ export async function POST(request: Request) {
 
     const { bookingId } = await request.json()
 
+    // Use service client for all data operations (auth.uid() may be stale in RLS)
+    const serviceClient = await createServiceClient()
+
     // Fetch booking with details
-    const { data: booking, error: bookingError } = await supabase
+    const { data: booking, error: bookingError } = await serviceClient
       .from('bookings')
       .select(`
         *,
@@ -40,9 +43,6 @@ export async function POST(request: Request) {
     if (typedBooking.status !== 'pending') {
       return NextResponse.json({ error: 'Booking is not pending' }, { status: 400 })
     }
-
-    // Delete any stale pending payments for this booking (expired snap tokens)
-    const serviceClient = await createServiceClient()
     await serviceClient
       .from('payments')
       .delete()

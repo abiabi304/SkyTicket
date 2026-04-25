@@ -17,8 +17,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing bookingId or newFlightId' }, { status: 400 })
     }
 
+    // Use service client for all data operations
+    const serviceClient = await createServiceClient()
+
     // Verify booking belongs to user
-    const { data: booking } = await supabase
+    const { data: booking } = await serviceClient
       .from('bookings')
       .select('id, user_id')
       .eq('id', bookingId)
@@ -28,9 +31,6 @@ export async function POST(request: Request) {
     if (!booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
-
-    // Call atomic reschedule RPC
-    const serviceClient = await createServiceClient()
     const { data, error } = await serviceClient.rpc('reschedule_booking', {
       p_booking_id: bookingId,
       p_new_flight_id: newFlightId,

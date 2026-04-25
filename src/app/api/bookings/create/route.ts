@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     const totalPrice = flight.price * passengerCount
     const expiresAt = new Date(Date.now() + BOOKING_EXPIRY_MINUTES * 60 * 1000).toISOString()
 
-    // Create booking
-    const { data: booking, error: bookingError } = await supabase
+    // Create booking (use service client to bypass RLS — auth.uid() may be stale)
+    const { data: booking, error: bookingError } = await serviceClient
       .from('bookings')
       .insert({
         user_id: user.id,
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     // Create passengers
-    const { error: passengersError } = await supabase
+    const { error: passengersError } = await serviceClient
       .from('passengers')
       .insert(
         passengers.map((p: { full_name: string; id_type: string; id_number: string }) => ({
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
 
     if (passengersError) {
       // Rollback: cancel booking + restore seats
-      await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
+      await serviceClient.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
       await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
       return NextResponse.json({ error: 'Failed to create passengers' }, { status: 500 })
     }

@@ -16,8 +16,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing bookingId' }, { status: 400 })
     }
 
+    // Use service client for all data operations
+    const serviceClient = await createServiceClient()
+
     // Verify booking belongs to user
-    const { data: booking } = await supabase
+    const { data: booking } = await serviceClient
       .from('bookings')
       .select('id, status')
       .eq('id', bookingId)
@@ -31,9 +34,6 @@ export async function POST(request: Request) {
     if (booking.status !== 'pending') {
       return NextResponse.json({ error: 'Booking is not pending' }, { status: 400 })
     }
-
-    // Atomic expire + seat restore via RPC
-    const serviceClient = await createServiceClient()
     const { data: expired } = await serviceClient.rpc('expire_booking', {
       p_booking_id: bookingId,
     })
