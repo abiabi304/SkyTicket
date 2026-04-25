@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { PageHeader } from '@/components/shared/page-header'
@@ -17,24 +17,6 @@ import { formatRupiah } from '@/lib/utils'
 import { RESCHEDULE_FEE, MAX_RESCHEDULES } from '@/lib/constants'
 import type { BookingWithDetails, FlightWithDetails, RescheduleInitResult } from '@/lib/types'
 
-declare global {
-  interface Window {
-    snap: {
-      embed: (
-        token: string,
-        options: {
-          embedId: string
-          onSuccess?: (result: Record<string, unknown>) => void
-          onPending?: (result: Record<string, unknown>) => void
-          onError?: (result: Record<string, unknown>) => void
-          onClose?: () => void
-        }
-      ) => void
-      hide: () => void
-    }
-  }
-}
-
 interface ReschedulePageProps {
   booking: BookingWithDetails
   availableFlights: FlightWithDetails[]
@@ -45,16 +27,30 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
   const [selectedFlight, setSelectedFlight] = useState<FlightWithDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const [snapReady, setSnapReady] = useState(false)
-  const [snapShown, setSnapShown] = useState(false)
   const [success, setSuccess] = useState(false)
   const [rescheduleResult, setRescheduleResult] = useState<RescheduleInitResult | null>(null)
+  const processingRef = useRef(false)
+  const summaryRef = useRef<HTMLDivElement>(null)
 
   const priceDiff = selectedFlight
     ? (selectedFlight.price * booking.passenger_count) - booking.total_price
     : 0
 
+  const amountDue = selectedFlight
+    ? Math.max(0, priceDiff + RESCHEDULE_FEE - booking.credit_balance)
+    : 0
+
+  const handleSelectFlight = (flight: FlightWithDetails) => {
+    setSelectedFlight(flight)
+    // Scroll to summary after selection
+    setTimeout(() => {
+      summaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 100)
+  }
+
   const handleReschedule = useCallback(async () => {
-    if (!selectedFlight) return
+    if (!selectedFlight || processingRef.current) return
+    processingRef.current = true
 
     setLoading(true)
     try {
@@ -78,7 +74,6 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
       setRescheduleResult(result)
 
       if (!result.requires_payment) {
-        // No payment needed — done!
         setSuccess(true)
         toast.success('Reschedule berhasil!')
         setTimeout(() => {
@@ -101,11 +96,8 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
         throw new Error(payData.error || 'Gagal membuat pembayaran')
       }
 
-      // Step 3: Show Midtrans Snap
-      setSnapShown(true)
-
-      window.snap.embed(payData.snapToken, {
-        embedId: 'snap-reschedule-container',
+      // Step 3: Show Midtrans Snap popup (not embed — avoids state issues)
+      window.snap.pay(payData.snapToken, {
         onSuccess: () => {
           setSuccess(true)
           toast.success('Reschedule berhasil!')
@@ -116,11 +108,11 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
         },
         onPending: () => {
           toast.info('Menunggu pembayaran...')
+          setLoading(false)
+          processingRef.current = false
         },
         onError: () => {
           toast.error('Pembayaran gagal')
-          setSnapShown(false)
-          // Expire the reschedule to reverse seat swap
           if (result.reschedule_id) {
             fetch('/api/reschedule/expire', {
               method: 'POST',
@@ -128,18 +120,21 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
               body: JSON.stringify({ rescheduleId: result.reschedule_id }),
             })
           }
+          setLoading(false)
+          processingRef.current = false
         },
         onClose: () => {
-          setSnapShown(false)
           setLoading(false)
+          processingRef.current = false
         },
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Reschedule gagal'
       toast.error(message)
       setLoading(false)
+      processingRef.current = false
     }
-  }, [selectedFlight, booking.id, booking.passenger_count, router])
+  }, [selectedFlight, booking.id, router])
 
   if (success) {
     return (
@@ -162,7 +157,7 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
+    <div className="mx-auto max-w-3xl px-4 py-6 pb-32 md:px-6 md:pb-6">
       <Script
         src={process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'}
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
@@ -198,93 +193,126 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
           <FlightSummaryCard flight={booking.flight} />
         </div>
 
-        {!snapShown && (
-          <>
-            {/* Arrow */}
-            <div className="flex justify-center">
-              <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-                <ArrowRight className="size-5 rotate-90 text-primary" />
-              </div>
-            </div>
+        {/* Arrow */}
+        <div className="flex justify-center">
+          <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
+            <ArrowRight className="size-5 rotate-90 text-primary" />
+          </div>
+        </div>
 
-            {/* Available flights */}
-            <div>
-              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
-                Pilih Penerbangan Baru
-                <Badge variant="secondary" className="ml-2">
-                  {availableFlights.length} tersedia
-                </Badge>
-              </h3>
+        {/* Available flights */}
+        <div>
+          <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+            Pilih Penerbangan Baru
+            <Badge variant="secondary" className="ml-2">
+              {availableFlights.length} tersedia
+            </Badge>
+          </h3>
 
-              {availableFlights.length === 0 ? (
-                <EmptyState
-                  icon={Plane}
-                  title="Tidak ada penerbangan tersedia"
-                  description="Tidak ada penerbangan lain pada rute dan kelas yang sama"
+          {availableFlights.length === 0 ? (
+            <EmptyState
+              icon={Plane}
+              title="Tidak ada penerbangan tersedia"
+              description="Tidak ada penerbangan lain pada rute dan kelas yang sama"
+            />
+          ) : (
+            <div className="space-y-3">
+              {availableFlights.map((flight) => (
+                <RescheduleFlightCard
+                  key={flight.id}
+                  flight={flight}
+                  currentPrice={booking.total_price}
+                  passengerCount={booking.passenger_count}
+                  isSelected={selectedFlight?.id === flight.id}
+                  onSelect={() => handleSelectFlight(flight)}
                 />
-              ) : (
-                <div className="space-y-3">
-                  {availableFlights.map((flight) => (
-                    <RescheduleFlightCard
-                      key={flight.id}
-                      flight={flight}
-                      currentPrice={booking.total_price}
-                      passengerCount={booking.passenger_count}
-                      isSelected={selectedFlight?.id === flight.id}
-                      onSelect={() => setSelectedFlight(flight)}
-                    />
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
+          )}
+        </div>
 
-            {/* Summary & confirm */}
-            {selectedFlight && (
-              <RescheduleSummary
-                currentFlight={booking.flight}
-                newFlight={selectedFlight}
-                passengerCount={booking.passenger_count}
-                currentTotal={booking.total_price}
-                creditBalance={booking.credit_balance}
-                rescheduleResult={rescheduleResult}
-              />
-            )}
-
-            {selectedFlight && (
-              <Button
-                onClick={handleReschedule}
-                disabled={loading || (priceDiff + RESCHEDULE_FEE - booking.credit_balance > 0 && !snapReady)}
-                className="h-12 w-full text-base"
-                size="lg"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 size-5 animate-spin" />
-                    Memproses...
-                  </>
-                ) : priceDiff + RESCHEDULE_FEE - booking.credit_balance > 0 ? (
-                  <>
-                    <CalendarClock className="mr-2 size-5" />
-                    Reschedule & Bayar {formatRupiah(Math.max(0, priceDiff + RESCHEDULE_FEE - booking.credit_balance))}
-                  </>
-                ) : (
-                  <>
-                    <CalendarClock className="mr-2 size-5" />
-                    Konfirmasi Reschedule
-                  </>
-                )}
-              </Button>
-            )}
-          </>
+        {/* Summary (scroll target) */}
+        {selectedFlight && (
+          <div ref={summaryRef}>
+            <RescheduleSummary
+              currentFlight={booking.flight}
+              newFlight={selectedFlight}
+              passengerCount={booking.passenger_count}
+              currentTotal={booking.total_price}
+              creditBalance={booking.credit_balance}
+              rescheduleResult={rescheduleResult}
+            />
+          </div>
         )}
 
-        {/* Snap Embedded Container */}
-        <Card className={snapShown ? '' : 'hidden'}>
-          <CardContent className="p-0">
-            <div id="snap-reschedule-container" className="min-h-[500px] w-full" />
-          </CardContent>
-        </Card>
+        {/* Desktop confirm button */}
+        {selectedFlight && (
+          <div className="hidden md:block">
+            <Button
+              onClick={handleReschedule}
+              disabled={loading || (amountDue > 0 && !snapReady)}
+              className="h-12 w-full text-base"
+              size="lg"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 size-5 animate-spin" />
+                  Memproses...
+                </>
+              ) : amountDue > 0 ? (
+                <>
+                  <CalendarClock className="mr-2 size-5" />
+                  Reschedule & Bayar {formatRupiah(amountDue)}
+                </>
+              ) : (
+                <>
+                  <CalendarClock className="mr-2 size-5" />
+                  Konfirmasi Reschedule
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Mobile sticky bottom bar */}
+      {selectedFlight && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background p-4 shadow-lg md:hidden">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {selectedFlight.airline.code} {selectedFlight.flight_number}
+              </span>
+              <span className="font-bold">
+                {amountDue > 0 ? formatRupiah(amountDue) : 'Gratis'}
+              </span>
+            </div>
+            <Button
+              onClick={handleReschedule}
+              disabled={loading || (amountDue > 0 && !snapReady)}
+              className="h-12 w-full text-base"
+              size="lg"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 size-5 animate-spin" />
+                  Memproses...
+                </>
+              ) : amountDue > 0 ? (
+                <>
+                  <CalendarClock className="mr-2 size-5" />
+                  Reschedule & Bayar
+                </>
+              ) : (
+                <>
+                  <CalendarClock className="mr-2 size-5" />
+                  Konfirmasi Reschedule
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
