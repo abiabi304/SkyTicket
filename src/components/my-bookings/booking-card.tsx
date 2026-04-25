@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { formatRupiah, formatDate, formatTime, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils'
+import { getAirlineLogoUrl } from '@/lib/supabase/storage'
 import { motion } from 'framer-motion'
 
 interface BookingCardProps {
@@ -17,7 +18,7 @@ interface BookingCardProps {
     flight: {
       flight_number: string
       departure_time: string
-      airline: { name: string; code: string }
+      airline: { name: string; code: string; logo_url: string | null }
       departure_airport: { code: string; city: string }
       arrival_airport: { code: string; city: string }
     }
@@ -48,6 +49,13 @@ export function BookingCard({ booking }: BookingCardProps) {
         </div>
 
         <div className="mb-2 flex items-center gap-2">
+          {booking.flight.airline.logo_url ? (
+            <img src={getAirlineLogoUrl(booking.flight.airline.logo_url)!} alt={booking.flight.airline.name} className="size-6 rounded-full object-cover" />
+          ) : (
+            <div className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+              {booking.flight.airline.code}
+            </div>
+          )}
           <span className="text-sm font-semibold">
             {booking.flight.departure_airport.code}
           </span>

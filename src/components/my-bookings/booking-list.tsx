@@ -20,7 +20,7 @@ type BookingItem = {
   flight: {
     flight_number: string
     departure_time: string
-    airline: { name: string; code: string }
+    airline: { name: string; code: string; logo_url: string | null }
     departure_airport: { code: string; city: string }
     arrival_airport: { code: string; city: string }
   }

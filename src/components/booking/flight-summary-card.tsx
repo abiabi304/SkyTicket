@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { formatTime, formatDuration, formatDate } from '@/lib/utils'
+import { getAirlineLogoUrl } from '@/lib/supabase/storage'
 import type { FlightWithDetails } from '@/lib/types'
 
 interface FlightSummaryCardProps {
@@ -10,9 +11,13 @@ export function FlightSummaryCard({ flight }: FlightSummaryCardProps) {
   return (
     <div className="rounded-lg border bg-card p-4 md:p-6">
       <div className="mb-3 flex items-center gap-3">
-        <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-          {flight.airline.code}
-        </div>
+        {flight.airline.logo_url ? (
+          <img src={getAirlineLogoUrl(flight.airline.logo_url)!} alt={flight.airline.name} className="size-8 rounded-full object-cover" />
+        ) : (
+          <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            {flight.airline.code}
+          </div>
+        )}
         <div>
           <p className="text-sm font-medium">{flight.airline.name}</p>
           <p className="text-xs text-muted-foreground">{flight.flight_number}</p>

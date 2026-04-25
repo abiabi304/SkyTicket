@@ -4,8 +4,15 @@ import QRCode from 'react-qrcode-logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { Download, Plane } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ChevronDown, Download, FileText, Plane, Printer } from 'lucide-react'
 import { formatDate, formatTime, formatDuration, formatRupiah } from '@/lib/utils'
+import { getAirlineLogoUrl } from '@/lib/supabase/storage'
 import type { BookingWithDetails } from '@/lib/types'
 
 interface ETicketProps {
@@ -17,14 +24,33 @@ export function ETicket({ booking }: ETicketProps) {
     window.print()
   }
 
+  const handleDownloadPdf = () => {
+    window.open(`/api/tickets/${booking.id}/pdf`, '_blank')
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between no-print">
         <h2 className="text-lg font-bold">E-Ticket</h2>
-        <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
-          <Download className="size-4" />
-          Cetak E-Ticket
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Download className="size-4" />
+              Cetak E-Ticket
+              <ChevronDown className="size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handlePrint} className="gap-2">
+              <Printer className="size-4" />
+              Cetak
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDownloadPdf} className="gap-2">
+              <FileText className="size-4" />
+              Download PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* This is the only thing that prints */}
@@ -66,9 +92,13 @@ export function ETicket({ booking }: ETicketProps) {
 
             {/* Airline info */}
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {booking.flight.airline.code}
-              </div>
+              {booking.flight.airline.logo_url ? (
+                <img src={getAirlineLogoUrl(booking.flight.airline.logo_url)!} alt={booking.flight.airline.name} className="size-8 rounded-full object-cover" />
+              ) : (
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                  {booking.flight.airline.code}
+                </div>
+              )}
               <div>
                 <p className="font-semibold">{booking.flight.airline.name}</p>
                 <p className="text-sm text-muted-foreground">

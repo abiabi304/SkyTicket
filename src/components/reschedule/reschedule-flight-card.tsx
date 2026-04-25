@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn, formatTime, formatDuration, formatDate, formatRupiah } from '@/lib/utils'
 import { RESCHEDULE_FEE } from '@/lib/constants'
 import { Check } from 'lucide-react'
+import { getAirlineLogoUrl } from '@/lib/supabase/storage'
 import type { FlightWithDetails } from '@/lib/types'
 
 interface RescheduleFlightCardProps {
@@ -36,9 +37,13 @@ export function RescheduleFlightCard({
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            {flight.airline.code}
-          </div>
+          {flight.airline.logo_url ? (
+            <img src={getAirlineLogoUrl(flight.airline.logo_url)!} alt={flight.airline.name} className="size-7 rounded-full object-cover" />
+          ) : (
+            <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              {flight.airline.code}
+            </div>
+          )}
           <div>
             <p className="text-sm font-medium">{flight.airline.name}</p>
             <p className="text-xs text-muted-foreground">{flight.flight_number}</p>
