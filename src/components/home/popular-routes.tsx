@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { format, addDays } from 'date-fns'
+import { format } from 'date-fns'
 import { Plane } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { formatRupiah } from '@/lib/utils'
@@ -32,7 +32,8 @@ interface PopularRoutesProps {
 
 export function PopularRoutes({ routes }: PopularRoutesProps) {
   const router = useRouter()
-  const dateStr = format(addDays(new Date(), 7), 'yyyy-MM-dd')
+  // Use current month for popular route search
+  const monthStr = format(new Date(), 'yyyy-MM')
 
   if (routes.length === 0) return null
 
@@ -50,7 +51,7 @@ export function PopularRoutes({ routes }: PopularRoutesProps) {
             whileTap={{ scale: 0.98 }}
             onClick={() =>
               router.push(
-                `/flights?from=${route.from}&to=${route.to}&date=${dateStr}&pax=1&class=economy`
+                `/flights?from=${route.from}&to=${route.to}&month=${monthStr}&pax=1&class=economy`
               )
             }
             className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} p-4 text-left text-white shadow-md transition-shadow hover:shadow-lg md:p-5`}

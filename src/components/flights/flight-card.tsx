@@ -1,10 +1,10 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Clock, Armchair } from 'lucide-react'
+import { Clock, Armchair, CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { formatRupiah, formatTime, formatDuration } from '@/lib/utils'
+import { formatRupiah, formatTime, formatDuration, formatDateShort } from '@/lib/utils'
 import type { FlightWithDetails } from '@/lib/types'
 import { motion } from 'framer-motion'
 
@@ -26,7 +26,7 @@ export function FlightCard({ flight, passengers }: FlightCardProps) {
       animate={{ opacity: 1, y: 0 }}
       className="group rounded-lg border bg-card p-4 transition-shadow md:p-6 md:hover:shadow-md"
     >
-      {/* Airline info */}
+      {/* Airline info + date */}
       <div className="mb-3 flex items-center gap-3">
         <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
           {flight.airline.code}
@@ -35,9 +35,15 @@ export function FlightCard({ flight, passengers }: FlightCardProps) {
           <p className="text-sm font-medium">{flight.airline.name}</p>
           <p className="text-xs text-muted-foreground">{flight.flight_number}</p>
         </div>
-        <Badge variant="secondary" className="ml-auto capitalize">
-          {flight.seat_class}
-        </Badge>
+        <div className="ml-auto flex items-center gap-2">
+          <Badge variant="outline" className="gap-1 text-xs">
+            <CalendarDays className="size-3" />
+            {formatDateShort(flight.departure_time)}
+          </Badge>
+          <Badge variant="secondary" className="capitalize">
+            {flight.seat_class}
+          </Badge>
+        </div>
       </div>
 
       {/* Flight route */}

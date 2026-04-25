@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { format } from 'date-fns'
+import { id as idLocale } from 'date-fns/locale'
 import { FlightCard } from './flight-card'
 import { FlightFilter } from './flight-filter'
 import { FlightSort } from './flight-sort'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PageHeader } from '@/components/shared/page-header'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import { Plane } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { FlightWithDetails, Airline, SortOption, TimeFilter } from '@/lib/types'
@@ -18,6 +21,7 @@ interface FlightResultsProps {
   from: string
   to: string
   date: string
+  month: string
   seatClass: string
 }
 
@@ -28,6 +32,7 @@ export function FlightResults({
   from,
   to,
   date,
+  month,
   seatClass,
 }: FlightResultsProps) {
   const maxPrice = useMemo(() => {
@@ -43,21 +48,16 @@ export function FlightResults({
   const filteredAndSorted = useMemo(() => {
     let result = [...flights]
 
-    // Filter by airline
     if (selectedAirlines.length > 0) {
       result = result.filter((f) => selectedAirlines.includes(f.airline.code))
     }
 
-    // Filter by price
     result = result.filter(
       (f) => f.price >= priceRange[0] && f.price <= priceRange[1]
     )
 
-    // Filter by time of day (using departure hour from ISO string directly — WIB)
     if (timeFilter.length > 0) {
       result = result.filter((f) => {
-        // Extract hour from ISO timestamp — parse the time portion directly
-        // Flights are stored in WIB (+07:00), so we parse the hour from the string
         const match = f.departure_time.match(/T(\d{2}):/)
         const hour = match ? parseInt(match[1], 10) : new Date(f.departure_time).getHours()
         return timeFilter.some((t) => {
@@ -69,7 +69,6 @@ export function FlightResults({
       })
     }
 
-    // Sort
     switch (sortBy) {
       case 'price_asc':
         result.sort((a, b) => a.price - b.price)
@@ -92,9 +91,32 @@ export function FlightResults({
     return result
   }, [flights, sortBy, selectedAirlines, priceRange, timeFilter])
 
-  // Build subtitle with search context
+  // Group flights by date for month search
+  const isMonthSearch = !date && !!month
+  const groupedByDate = useMemo(() => {
+    if (!isMonthSearch) return null
+    const groups = new Map<string, FlightWithDetails[]>()
+    for (const f of filteredAndSorted) {
+      const dateKey = f.departure_time.split('T')[0]
+      const existing = groups.get(dateKey)
+      if (existing) {
+        existing.push(f)
+      } else {
+        groups.set(dateKey, [f])
+      }
+    }
+    return groups
+  }, [filteredAndSorted, isMonthSearch])
+
+  // Build subtitle
+  const dateLabel = date
+    ? formatDate(`${date}T00:00:00`)
+    : month
+      ? format(new Date(`${month}-01`), 'MMMM yyyy', { locale: idLocale })
+      : null
+
   const subtitle = [
-    date ? formatDate(`${date}T00:00:00`) : null,
+    dateLabel,
     `${passengers} penumpang`,
     seatClass === 'business' ? 'Business' : 'Economy',
   ].filter(Boolean).join(' • ')
@@ -113,11 +135,15 @@ export function FlightResults({
           <Badge variant="secondary">
             {filteredAndSorted.length} penerbangan
           </Badge>
+          {isMonthSearch && groupedByDate && (
+            <Badge variant="outline">
+              {groupedByDate.size} tanggal tersedia
+            </Badge>
+          )}
         </div>
       </div>
 
       <div className="mt-6 flex flex-col gap-6 md:flex-row">
-        {/* Filters */}
         <FlightFilter
           airlines={airlines}
           selectedAirlines={selectedAirlines}
@@ -129,7 +155,6 @@ export function FlightResults({
           onTimeFilterChange={setTimeFilter}
         />
 
-        {/* Results */}
         <div className="flex-1 space-y-3">
           <div className="flex items-center justify-end">
             <FlightSort value={sortBy} onChange={setSortBy} />
@@ -139,11 +164,38 @@ export function FlightResults({
             <EmptyState
               icon={Plane}
               title="Tidak ada penerbangan ditemukan"
-              description="Coba ubah filter pencarian atau pilih tanggal lain"
+              description="Coba ubah filter pencarian atau pilih tanggal/bulan lain"
               actionLabel="Ubah Pencarian"
               actionHref="/"
             />
+          ) : isMonthSearch && groupedByDate ? (
+            // Month search: group by date with date headers
+            <div className="space-y-6">
+              {Array.from(groupedByDate.entries()).map(([dateKey, dateFlights]) => (
+                <div key={dateKey}>
+                  <div className="mb-3 flex items-center gap-3">
+                    <h3 className="text-sm font-semibold">
+                      {formatDate(`${dateKey}T00:00:00`)}
+                    </h3>
+                    <Separator className="flex-1" />
+                    <span className="text-xs text-muted-foreground">
+                      {dateFlights.length} penerbangan
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {dateFlights.map((flight) => (
+                      <FlightCard
+                        key={flight.id}
+                        flight={flight}
+                        passengers={passengers}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
+            // Date search: flat list
             <div className="space-y-3">
               {filteredAndSorted.map((flight) => (
                 <FlightCard

@@ -17,6 +17,7 @@ interface FlightsPageProps {
     from?: string
     to?: string
     date?: string
+    month?: string
     pax?: string
     class?: string
   }
@@ -24,7 +25,7 @@ interface FlightsPageProps {
 
 export default async function FlightsPage({ searchParams }: FlightsPageProps) {
   const supabase = await createClient()
-  const { from, to, date, pax, class: seatClass } = searchParams
+  const { from, to, date, month, pax, class: seatClass } = searchParams
   const passengerCount = Math.min(5, Math.max(1, Number(pax) || 1))
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -74,11 +75,19 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
   if (seatClass && (seatClass === 'economy' || seatClass === 'business')) {
     query = query.eq('seat_class', seatClass)
   }
+
+  // Date filter: specific date OR entire month
   if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    // Use WIB timezone (UTC+7) for date range — all flights stored in WIB
     const startOfDay = `${date}T00:00:00+07:00`
     const endOfDay = `${date}T23:59:59.999+07:00`
     query = query.gte('departure_time', startOfDay).lte('departure_time', endOfDay)
+  } else if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [year, mon] = month.split('-').map(Number)
+    const startOfMonth = `${month}-01T00:00:00+07:00`
+    // Last day of month
+    const lastDay = new Date(year, mon, 0).getDate()
+    const endOfMonth = `${month}-${String(lastDay).padStart(2, '0')}T23:59:59.999+07:00`
+    query = query.gte('departure_time', startOfMonth).lte('departure_time', endOfMonth)
   }
 
   query = query.order('departure_time', { ascending: true })
@@ -89,7 +98,7 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
     (f) => f.departure_airport && f.arrival_airport && f.airline
   ) as FlightWithDetails[]
 
-  // Only include airlines that have matching flights (not all airlines)
+  // Only include airlines that have matching flights
   const matchingAirlines: Airline[] = validFlights
     .map((f) => f.airline)
     .filter((a, i, arr) => arr.findIndex((x) => x.id === a.id) === i)
@@ -105,6 +114,7 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
           from={from ?? ''}
           to={to ?? ''}
           date={date ?? ''}
+          month={month ?? ''}
           seatClass={seatClass ?? 'economy'}
         />
       </main>

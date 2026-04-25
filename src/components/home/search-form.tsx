@@ -31,21 +31,45 @@ interface SearchFormProps {
   airports: Airport[]
 }
 
+// Generate month options: current month + next 11 months
+function getMonthOptions() {
+  const options: { value: string; label: string }[] = []
+  const now = new Date()
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    options.push({
+      value: format(d, 'yyyy-MM'),
+      label: format(d, 'MMMM yyyy', { locale: id }),
+    })
+  }
+  return options
+}
+
 export function SearchForm({ airports }: SearchFormProps) {
   const router = useRouter()
   const {
     from,
     to,
     departureDate,
+    searchByMonth,
     passengers,
     seatClass,
     setFrom,
     setTo,
     swapAirports,
     setDepartureDate,
+    setSearchByMonth,
     setPassengers,
     setSeatClass,
   } = useSearchStore()
+
+  const monthOptions = getMonthOptions()
+  const selectedMonth = format(departureDate, 'yyyy-MM')
+
+  const handleMonthChange = (value: string) => {
+    const [year, month] = value.split('-').map(Number)
+    setDepartureDate(new Date(year, month - 1, 1))
+  }
 
   const handleSubmit = () => {
     if (!from) {
@@ -61,10 +85,17 @@ export function SearchForm({ airports }: SearchFormProps) {
       return
     }
 
-    const dateStr = format(departureDate, 'yyyy-MM-dd')
-    router.push(
-      `/flights?from=${from}&to=${to}&date=${dateStr}&pax=${passengers}&class=${seatClass}`
-    )
+    if (searchByMonth) {
+      const monthStr = format(departureDate, 'yyyy-MM')
+      router.push(
+        `/flights?from=${from}&to=${to}&month=${monthStr}&pax=${passengers}&class=${seatClass}`
+      )
+    } else {
+      const dateStr = format(departureDate, 'yyyy-MM-dd')
+      router.push(
+        `/flights?from=${from}&to=${to}&date=${dateStr}&pax=${passengers}&class=${seatClass}`
+      )
+    }
   }
 
   return (
@@ -101,38 +132,64 @@ export function SearchForm({ airports }: SearchFormProps) {
         />
       </div>
 
-      {/* Date, passengers, class */}
+      {/* Date/Month, passengers, class */}
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {/* Date picker */}
+        {/* Date/Month picker */}
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            Tanggal Berangkat
-          </label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'h-11 w-full justify-start text-left font-normal md:h-12',
-                  !departureDate && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="mr-2 size-4" />
-                {departureDate
-                  ? format(departureDate, 'd MMMM yyyy', { locale: id })
-                  : 'Pilih tanggal'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={departureDate}
-                onSelect={(date) => date && setDepartureDate(date)}
-                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="text-xs font-medium text-muted-foreground">
+              {searchByMonth ? 'Bulan Keberangkatan' : 'Tanggal Keberangkatan'}
+            </label>
+            <button
+              type="button"
+              onClick={() => setSearchByMonth(!searchByMonth)}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              {searchByMonth ? 'Pilih tanggal' : 'Cari per bulan'}
+            </button>
+          </div>
+
+          {searchByMonth ? (
+            <Select value={selectedMonth} onValueChange={handleMonthChange}>
+              <SelectTrigger className="h-11 md:h-12">
+                <CalendarIcon className="mr-2 size-4 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'h-11 w-full justify-start text-left font-normal md:h-12',
+                    !departureDate && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 size-4" />
+                  {departureDate
+                    ? format(departureDate, 'd MMMM yyyy', { locale: id })
+                    : 'Pilih tanggal'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={departureDate}
+                  onSelect={(date) => date && setDepartureDate(date)}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
 
         {/* Passenger counter */}
