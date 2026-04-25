@@ -231,6 +231,7 @@ ALTER TABLE public.flight_seats ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read aircraft_types" ON public.aircraft_types FOR SELECT USING (true);
 CREATE POLICY "Admin manage aircraft_types" ON public.aircraft_types FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 CREATE POLICY "Public read flight_seats" ON public.flight_seats FOR SELECT USING (true);
+CREATE POLICY "Service write flight_seats" ON public.flight_seats FOR ALL USING (true) WITH CHECK (true);
 
 -- =============================================
 -- Reschedule Support
@@ -283,6 +284,8 @@ CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON public.payments(booking_id
 CREATE INDEX IF NOT EXISTS idx_payments_midtrans_order ON public.payments(midtrans_order_id);
 CREATE INDEX IF NOT EXISTS idx_reschedules_booking_status ON public.reschedules(booking_id, status);
 CREATE INDEX IF NOT EXISTS idx_reschedules_payment_id ON public.reschedules(payment_id);
+CREATE INDEX IF NOT EXISTS idx_flights_airline_id ON public.flights(airline_id);
+CREATE INDEX IF NOT EXISTS idx_flights_aircraft_type_id ON public.flights(aircraft_type_id);
 
 -- =============================================
 -- Atomic Seat Management RPCs
