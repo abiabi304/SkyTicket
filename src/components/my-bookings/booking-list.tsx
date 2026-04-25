@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, FileText } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Search, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BookingCard } from './booking-card'
 import { EmptyState } from '@/components/shared/empty-state'
+
+const BOOKINGS_PER_PAGE = 10
 
 type BookingItem = {
   id: string
@@ -38,6 +41,7 @@ const STATUS_TABS = [
 export function BookingList({ bookings }: BookingListProps) {
   const [activeTab, setActiveTab] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
@@ -48,6 +52,19 @@ export function BookingList({ bookings }: BookingListProps) {
       return matchesStatus && matchesSearch
     })
   }, [bookings, activeTab, searchQuery])
+
+  const paginatedBookings = useMemo(() => {
+    return filteredBookings.slice(
+      (currentPage - 1) * BOOKINGS_PER_PAGE,
+      currentPage * BOOKINGS_PER_PAGE
+    )
+  }, [filteredBookings, currentPage])
+
+  const totalPages = Math.ceil(filteredBookings.length / BOOKINGS_PER_PAGE)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery])
 
   return (
     <div className="space-y-4">
@@ -83,11 +100,40 @@ export function BookingList({ bookings }: BookingListProps) {
             }
           />
         ) : (
-          filteredBookings.map((booking) => (
+          paginatedBookings.map((booking) => (
             <BookingCard key={booking.id} booking={booking} />
           ))
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            Halaman {currentPage} dari {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="mr-1 size-4" />
+              Sebelumnya
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Selanjutnya
+              <ChevronRight className="ml-1 size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

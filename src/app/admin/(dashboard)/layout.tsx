@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
+import { AdminBreadcrumb } from '@/components/admin/admin-breadcrumb'
 import type { Profile } from '@/lib/types'
 
 export default async function AdminLayout({
@@ -26,6 +27,7 @@ export default async function AdminLayout({
       <AdminSidebar profile={profile as Profile} />
       <main className="flex-1 overflow-auto bg-muted/30">
         <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+          <AdminBreadcrumb />
           {children}
         </div>
       </main>

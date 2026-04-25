@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createSnapClient } from '@/lib/midtrans/config'
+import { rateLimit } from '@/lib/rate-limit'
 import type { BookingWithDetails } from '@/lib/types'
 
 export async function POST(request: Request) {
@@ -10,6 +11,11 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { success: rateLimitOk } = rateLimit(`payment:${user.id}`, 10, 60000)
+    if (!rateLimitOk) {
+      return NextResponse.json({ error: 'Terlalu banyak permintaan. Coba lagi nanti.' }, { status: 429 })
     }
 
     const { bookingId } = await request.json()

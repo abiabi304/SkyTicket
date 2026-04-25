@@ -13,25 +13,34 @@ import {
 } from '@/components/ui/table'
 import { DeleteItemButton } from '@/components/admin/delete-item-button'
 import { AdminSearch } from '@/components/admin/admin-search'
+import { AdminPagination } from '@/components/admin/admin-pagination'
 import type { Airline } from '@/lib/types'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Kelola Maskapai | Admin' }
 
+const ITEMS_PER_PAGE = 20
+
 export default async function AdminAirlinesPage({
   searchParams,
 }: {
-  searchParams: { search?: string }
+  searchParams: { search?: string; page?: string }
 }) {
   const supabase = await createClient()
-  let query = supabase.from('airlines').select('*').order('name')
+  const currentPage = Math.max(1, parseInt(searchParams.page ?? '1', 10) || 1)
+  const from = (currentPage - 1) * ITEMS_PER_PAGE
+  const to = from + ITEMS_PER_PAGE - 1
+
+  let query = supabase.from('airlines').select('*', { count: 'exact' }).order('name')
 
   if (searchParams.search) {
     query = query.or(`name.ilike.%${searchParams.search}%,code.ilike.%${searchParams.search}%`)
   }
 
-  const { data: airlines } = await query
+  const { data: airlines, count } = await query.range(from, to)
   const typedAirlines = (airlines ?? []) as Airline[]
+  const totalCount = count ?? 0
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
   return (
     <div className="space-y-6 pt-14 md:pt-0">
@@ -56,7 +65,7 @@ export default async function AdminAirlinesPage({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold">
-            {typedAirlines.length} maskapai
+            {totalCount} maskapai
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -109,6 +118,13 @@ export default async function AdminAirlinesPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath="/admin/airlines"
+      />
     </div>
   )
 }

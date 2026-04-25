@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -13,10 +14,36 @@ interface PassengerFormProps {
 }
 
 export function PassengerForm({ passengers, onChange }: PassengerFormProps) {
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
   const updatePassenger = (index: number, field: keyof PassengerInput, value: string) => {
     const updated = [...passengers]
     updated[index] = { ...updated[index], [field]: value }
     onChange(updated)
+    // Clear error when user starts typing
+    const key = `${index}-${field}`
+    if (errors[key]) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+    }
+  }
+
+  const validateField = (index: number, field: keyof PassengerInput, value: string) => {
+    const key = `${index}-${field}`
+    if (field === 'full_name' && value.length > 0 && value.length < 3) {
+      setErrors((prev) => ({ ...prev, [key]: 'Minimal 3 karakter' }))
+    } else if (field === 'id_number' && value.length > 0 && value.length < 6) {
+      setErrors((prev) => ({ ...prev, [key]: 'Minimal 6 karakter' }))
+    } else {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+    }
   }
 
   return (
@@ -38,9 +65,13 @@ export function PassengerForm({ passengers, onChange }: PassengerFormProps) {
                 id={`name-${index}`}
                 value={passenger.full_name}
                 onChange={(e) => updatePassenger(index, 'full_name', e.target.value)}
+                onBlur={(e) => validateField(index, 'full_name', e.target.value)}
                 placeholder="Sesuai KTP/Paspor"
                 minLength={3}
               />
+              {errors[`${index}-full_name`] && (
+                <p className="text-xs text-destructive mt-1">{errors[`${index}-full_name`]}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -73,8 +104,12 @@ export function PassengerForm({ passengers, onChange }: PassengerFormProps) {
                 id={`id-${index}`}
                 value={passenger.id_number}
                 onChange={(e) => updatePassenger(index, 'id_number', e.target.value)}
+                onBlur={(e) => validateField(index, 'id_number', e.target.value)}
                 placeholder={passenger.id_type === 'ktp' ? '3171xxxxxxxxxxxx' : 'A12345678'}
               />
+              {errors[`${index}-id_number`] && (
+                <p className="text-xs text-destructive mt-1">{errors[`${index}-id_number`]}</p>
+              )}
             </div>
           </div>
         ))}

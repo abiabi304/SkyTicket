@@ -81,7 +81,12 @@ export function SeatMap({
       </div>
 
       {/* Fuselage wrapper */}
-      <div className="relative w-full rounded-b-3xl border-x border-b border-border bg-gradient-to-b from-muted/30 to-card pb-6">
+      <div className="group/seatmap relative w-full rounded-b-3xl border-x border-b border-border bg-gradient-to-b from-muted/30 to-card pb-6">
+        {/* Keyboard instructions - visible on focus-within */}
+        <p className="hidden group-focus-within/seatmap:block text-xs text-muted-foreground text-center px-3 pt-2">
+          Gunakan Tab untuk navigasi antar kursi, Enter atau Spasi untuk memilih
+        </p>
+
         {/* Column headers */}
         <div
           className="sticky top-0 z-10 grid items-center gap-1 bg-card/95 px-3 py-2 backdrop-blur-sm md:px-4"
@@ -105,13 +110,14 @@ export function SeatMap({
         </div>
 
         {/* Seat rows */}
-        <div className="space-y-1 px-3 md:px-4">
+        <div className="space-y-1 px-3 md:px-4" role="grid">
           {layout.rows.map((row) => {
             const isBusiness = row.class === 'business'
 
             return (
               <div
                 key={row.number}
+                role="row"
                 className={cn(
                   'grid items-center gap-1',
                   isBusiness && 'gap-1.5'
@@ -156,6 +162,7 @@ export function SeatMap({
                     <button
                       key={seatLabel}
                       type="button"
+                      role="gridcell"
                       disabled={isDisabled}
                       onClick={() => onSeatSelect(seatLabel)}
                       aria-label={`Kursi ${seatLabel}, ${getSeatTypeLabel(seat.seat_type)}`}

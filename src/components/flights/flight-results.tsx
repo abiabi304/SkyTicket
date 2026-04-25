@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
 import { FlightCard } from './flight-card'
@@ -10,9 +10,12 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { PageHeader } from '@/components/shared/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Plane } from 'lucide-react'
+import { Plane, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
 import type { FlightWithDetails, Airline, SortOption, TimeFilter } from '@/lib/types'
+
+const FLIGHTS_PER_PAGE = 10
 
 interface FlightResultsProps {
   flights: FlightWithDetails[]
@@ -44,6 +47,7 @@ export function FlightResults({
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([])
   const [priceRange, setPriceRange] = useState<[number, number]>([0, maxPrice])
   const [timeFilter, setTimeFilter] = useState<TimeFilter[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
 
   const filteredAndSorted = useMemo(() => {
     let result = [...flights]
@@ -91,12 +95,25 @@ export function FlightResults({
     return result
   }, [flights, sortBy, selectedAirlines, priceRange, timeFilter])
 
+  const paginatedFlights = useMemo(() => {
+    return filteredAndSorted.slice(
+      (currentPage - 1) * FLIGHTS_PER_PAGE,
+      currentPage * FLIGHTS_PER_PAGE
+    )
+  }, [filteredAndSorted, currentPage])
+
+  const totalPages = Math.ceil(filteredAndSorted.length / FLIGHTS_PER_PAGE)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [sortBy, selectedAirlines, priceRange, timeFilter])
+
   // Group flights by date for month search
   const isMonthSearch = !date && !!month
   const groupedByDate = useMemo(() => {
     if (!isMonthSearch) return null
     const groups = new Map<string, FlightWithDetails[]>()
-    for (const f of filteredAndSorted) {
+    for (const f of paginatedFlights) {
       const dateKey = f.departure_time.split('T')[0]
       const existing = groups.get(dateKey)
       if (existing) {
@@ -106,7 +123,7 @@ export function FlightResults({
       }
     }
     return groups
-  }, [filteredAndSorted, isMonthSearch])
+  }, [paginatedFlights, isMonthSearch])
 
   // Build subtitle
   const dateLabel = date
@@ -197,13 +214,42 @@ export function FlightResults({
           ) : (
             // Date search: flat list
             <div className="space-y-3">
-              {filteredAndSorted.map((flight) => (
+              {paginatedFlights.map((flight) => (
                 <FlightCard
                   key={flight.id}
                   flight={flight}
                   passengers={passengers}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-muted-foreground">
+                Halaman {currentPage} dari {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  <ChevronLeft className="mr-1 size-4" />
+                  Sebelumnya
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Selanjutnya
+                  <ChevronRight className="ml-1 size-4" />
+                </Button>
+              </div>
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { generateBookingCode } from '@/lib/utils'
 import { BOOKING_EXPIRY_MINUTES } from '@/lib/constants'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,12 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Rate limit: 5 bookings per minute per user
+    const { success: rateLimitOk } = rateLimit(`booking:${user.id}`, 5, 60000)
+    if (!rateLimitOk) {
+      return NextResponse.json({ error: 'Terlalu banyak permintaan. Coba lagi nanti.' }, { status: 429 })
     }
 
     const { flightId, passengers, contactEmail, contactPhone, seatAssignments } = await request.json()

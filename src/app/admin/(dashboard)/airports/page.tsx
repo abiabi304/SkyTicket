@@ -13,25 +13,34 @@ import {
 } from '@/components/ui/table'
 import { DeleteItemButton } from '@/components/admin/delete-item-button'
 import { AdminSearch } from '@/components/admin/admin-search'
+import { AdminPagination } from '@/components/admin/admin-pagination'
 import type { Airport } from '@/lib/types'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Kelola Bandara | Admin' }
 
+const ITEMS_PER_PAGE = 20
+
 export default async function AdminAirportsPage({
   searchParams,
 }: {
-  searchParams: { search?: string }
+  searchParams: { search?: string; page?: string }
 }) {
   const supabase = await createClient()
-  let query = supabase.from('airports').select('*').order('city')
+  const currentPage = Math.max(1, parseInt(searchParams.page ?? '1', 10) || 1)
+  const from = (currentPage - 1) * ITEMS_PER_PAGE
+  const to = from + ITEMS_PER_PAGE - 1
+
+  let query = supabase.from('airports').select('*', { count: 'exact' }).order('city')
 
   if (searchParams.search) {
     query = query.or(`city.ilike.%${searchParams.search}%,code.ilike.%${searchParams.search}%,name.ilike.%${searchParams.search}%`)
   }
 
-  const { data: airports } = await query
+  const { data: airports, count } = await query.range(from, to)
   const typedAirports = (airports ?? []) as Airport[]
+  const totalCount = count ?? 0
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
   return (
     <div className="space-y-6 pt-14 md:pt-0">
@@ -56,7 +65,7 @@ export default async function AdminAirportsPage({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold">
-            {typedAirports.length} bandara
+            {totalCount} bandara
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -116,6 +125,13 @@ export default async function AdminAirportsPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath="/admin/airports"
+      />
     </div>
   )
 }
