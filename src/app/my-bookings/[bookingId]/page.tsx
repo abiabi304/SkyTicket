@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
+import { Footer } from '@/components/layout/footer'
 import { PageHeader } from '@/components/shared/page-header'
 import { FlightSummaryCard } from '@/components/booking/flight-summary-card'
 import { ETicket } from '@/components/my-bookings/e-ticket'
@@ -14,8 +15,8 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { CancelBookingButton } from '@/components/my-bookings/cancel-booking-button'
 import { CancelRescheduleButton } from '@/components/my-bookings/cancel-reschedule-button'
-import { CalendarClock, Info } from 'lucide-react'
-import { formatRupiah, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils'
+import { CalendarClock, Info, Clock, CheckCircle2, Plane } from 'lucide-react'
+import { formatRupiah, getBookingStatusColor, getBookingStatusLabel, getFlightStatus } from '@/lib/utils'
 import { MAX_RESCHEDULES } from '@/lib/constants'
 import type { BookingWithDetails, Profile } from '@/lib/types'
 import type { Metadata } from 'next'
@@ -136,6 +137,26 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
               </Card>
             )}
 
+            {/* Flight status */}
+            {typedBooking.status === 'paid' && (() => {
+              const flightStatus = getFlightStatus(typedBooking.flight.departure_time, typedBooking.flight.arrival_time)
+              const statusConfig = {
+                upcoming: { icon: Clock, label: 'Belum Berangkat', color: 'border-blue-200 bg-blue-50 text-blue-700' },
+                departed: { icon: Plane, label: 'Sedang Dalam Penerbangan', color: 'border-yellow-200 bg-yellow-50 text-yellow-700' },
+                completed: { icon: CheckCircle2, label: 'Penerbangan Selesai', color: 'border-green-200 bg-green-50 text-green-700' },
+              }
+              const config = statusConfig[flightStatus]
+              const StatusIcon = config.icon
+              return (
+                <Card className={`${config.color} border`}>
+                  <CardContent className="flex items-center gap-3 pt-4">
+                    <StatusIcon className="size-4 shrink-0" />
+                    <p className="text-sm font-medium">{config.label}</p>
+                  </CardContent>
+                </Card>
+              )
+            })()}
+
             {/* Flight info */}
             <FlightSummaryCard flight={typedBooking.flight} />
 
@@ -209,6 +230,7 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
           </div>
         </div>
       </main>
+      <Footer />
       <MobileNav />
     </div>
   )

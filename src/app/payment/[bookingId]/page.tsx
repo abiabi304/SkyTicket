@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
+import { Footer } from '@/components/layout/footer'
 import { PaymentPage } from '@/components/payment/payment-page'
 import type { BookingWithDetails, Profile } from '@/lib/types'
 import type { Metadata } from 'next'
@@ -90,6 +91,7 @@ export default async function Payment({ params }: PaymentPageProps) {
       <main className="flex-1 pb-20 md:pb-0">
         <PaymentPage booking={typedBooking} />
       </main>
+      <Footer />
       <MobileNav />
     </div>
   )

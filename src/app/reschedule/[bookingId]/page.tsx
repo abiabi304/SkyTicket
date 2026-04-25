@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
+import { Footer } from '@/components/layout/footer'
 import { ReschedulePage } from '@/components/reschedule/reschedule-page'
 import type { BookingWithDetails, FlightWithDetails, Profile } from '@/lib/types'
 import type { Metadata } from 'next'
@@ -91,6 +92,7 @@ export default async function Reschedule({ params }: ReschedulePageProps) {
           availableFlights={(availableFlights as unknown as FlightWithDetails[]) ?? []}
         />
       </main>
+      <Footer />
       <MobileNav />
     </div>
   )

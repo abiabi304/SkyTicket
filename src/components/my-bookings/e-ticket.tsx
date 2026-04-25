@@ -52,7 +52,7 @@ export function ETicket({ booking }: ETicketProps) {
               </div>
               <div className="shrink-0">
                 <QRCode
-                  value={booking.booking_code}
+                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/my-bookings/${booking.id}`}
                   size={90}
                   bgColor="transparent"
                   fgColor="#1A73E8"

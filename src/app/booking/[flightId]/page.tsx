@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
+import { Footer } from '@/components/layout/footer'
 import { BookingFlow } from '@/components/booking/booking-flow'
 import type { FlightWithDetails, Profile } from '@/lib/types'
 import type { Metadata } from 'next'
@@ -67,6 +68,7 @@ export default async function BookingPage({ params, searchParams }: BookingPageP
           passengerCount={passengers}
         />
       </main>
+      <Footer />
       <MobileNav />
     </div>
   )

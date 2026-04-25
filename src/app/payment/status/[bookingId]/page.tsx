@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { Footer } from '@/components/layout/footer'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle2, Clock, XCircle } from 'lucide-react'
@@ -118,6 +119,7 @@ export default async function PaymentStatusPage({ params }: PaymentStatusPagePro
           </CardContent>
         </Card>
       </main>
+      <Footer />
       <MobileNav />
     </div>
   )

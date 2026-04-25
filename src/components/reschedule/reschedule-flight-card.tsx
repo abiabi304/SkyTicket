@@ -84,19 +84,28 @@ export function RescheduleFlightCard({
           <p className="text-xs text-muted-foreground">{flight.available_seats} kursi tersedia</p>
         </div>
         <div className="text-right">
-          {priceDiff > 0 ? (
-            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">
-              +{formatRupiah(priceDiff + RESCHEDULE_FEE)}
-            </Badge>
-          ) : priceDiff < 0 ? (
-            <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-              Kredit {formatRupiah(Math.abs(priceDiff) - RESCHEDULE_FEE)}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
-              +{formatRupiah(RESCHEDULE_FEE)} (fee)
-            </Badge>
-          )}
+          {(() => {
+            const netCost = priceDiff + RESCHEDULE_FEE
+            if (netCost > 0) {
+              return (
+                <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">
+                  +{formatRupiah(netCost)}
+                </Badge>
+              )
+            } else if (netCost < 0) {
+              return (
+                <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+                  Kredit {formatRupiah(Math.abs(netCost))}
+                </Badge>
+              )
+            } else {
+              return (
+                <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                  Gratis
+                </Badge>
+              )
+            }
+          })()}
         </div>
       </div>
     </button>
