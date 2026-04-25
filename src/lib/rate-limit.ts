@@ -1,20 +1,28 @@
-/**
- * Simple in-memory rate limiter for API routes.
- * For production at scale, use Upstash Redis or similar.
- * This works for single-instance Vercel serverless (per-invocation memory).
- */
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
 
-// Clean up expired entries periodically
-setInterval(() => {
-  const now = Date.now()
-  rateLimitMap.forEach((value, key) => {
-    if (now > value.resetTime) {
-      rateLimitMap.delete(key)
-    }
-  })
-}, 60000)
+// Cache rate limiter instances per window config
+const limiters = new Map<string, Ratelimit>()
+
+function getLimiter(maxRequests: number, windowMs: number): Ratelimit {
+  const key = `${maxRequests}:${windowMs}`
+  let limiter = limiters.get(key)
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
+      analytics: false,
+      prefix: 'skyticket',
+    })
+    limiters.set(key, limiter)
+  }
+  return limiter
+}
 
 interface RateLimitResult {
   success: boolean
@@ -22,33 +30,21 @@ interface RateLimitResult {
   resetIn: number
 }
 
-export function rateLimit(
+export async function rateLimit(
   identifier: string,
   maxRequests: number = 10,
   windowMs: number = 60000
-): RateLimitResult {
-  const now = Date.now()
-  const key = identifier
-
-  const existing = rateLimitMap.get(key)
-
-  if (!existing || now > existing.resetTime) {
-    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
-    return { success: true, remaining: maxRequests - 1, resetIn: windowMs }
-  }
-
-  if (existing.count >= maxRequests) {
+): Promise<RateLimitResult> {
+  try {
+    const limiter = getLimiter(maxRequests, windowMs)
+    const { success, remaining, reset } = await limiter.limit(identifier)
     return {
-      success: false,
-      remaining: 0,
-      resetIn: existing.resetTime - now,
+      success,
+      remaining,
+      resetIn: Math.max(0, reset - Date.now()),
     }
-  }
-
-  existing.count++
-  return {
-    success: true,
-    remaining: maxRequests - existing.count,
-    resetIn: existing.resetTime - now,
+  } catch {
+    // If Redis is down, allow the request (fail open)
+    return { success: true, remaining: maxRequests, resetIn: 0 }
   }
 }
