@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Plane, Menu, LogOut, User, FileText, Shield } from 'lucide-react'
+import { Plane, Menu, LogOut, User, FileText, Shield, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import type { Profile } from '@/lib/types'
 import { useState } from 'react'
 
@@ -22,14 +22,15 @@ interface NavbarProps {
 }
 
 export function Navbar({ user }: NavbarProps) {
-  const router = useRouter()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    setLoggingOut(true)
     await supabase.auth.signOut()
-    router.refresh()
-    router.push('/')
+    toast.success('Berhasil keluar')
+    window.location.href = '/'
   }
 
   const navLinks = [
@@ -189,9 +190,9 @@ export function Navbar({ user }: NavbarProps) {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
-                  <LogOut className="mr-2 size-4" />
-                  Keluar
+                <DropdownMenuItem onClick={handleLogout} disabled={loggingOut} className="cursor-pointer text-destructive">
+                  {loggingOut ? <Loader2 className="mr-2 size-4 animate-spin" /> : <LogOut className="mr-2 size-4" />}
+                  {loggingOut ? 'Keluar...' : 'Keluar'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
