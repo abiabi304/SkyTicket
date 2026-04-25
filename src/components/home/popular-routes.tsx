@@ -6,20 +6,35 @@ import { Plane } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { formatRupiah } from '@/lib/utils'
 
-const routes = [
-  { from: 'CGK', fromCity: 'Jakarta', to: 'DPS', toCity: 'Bali', price: 520000, gradient: 'from-blue-500 to-cyan-400' },
-  { from: 'CGK', fromCity: 'Jakarta', to: 'SUB', toCity: 'Surabaya', price: 500000, gradient: 'from-emerald-500 to-teal-400' },
-  { from: 'CGK', fromCity: 'Jakarta', to: 'JOG', toCity: 'Yogyakarta', price: 520000, gradient: 'from-violet-500 to-purple-400' },
-  { from: 'CGK', fromCity: 'Jakarta', to: 'KNO', toCity: 'Medan', price: 620000, gradient: 'from-orange-500 to-amber-400' },
-  { from: 'CGK', fromCity: 'Jakarta', to: 'UPG', toCity: 'Makassar', price: 890000, gradient: 'from-rose-500 to-pink-400' },
-  { from: 'CGK', fromCity: 'Jakarta', to: 'BPN', toCity: 'Balikpapan', price: 950000, gradient: 'from-indigo-500 to-blue-400' },
-  { from: 'SUB', fromCity: 'Surabaya', to: 'DPS', toCity: 'Bali', price: 420000, gradient: 'from-teal-500 to-emerald-400' },
-  { from: 'CGK', fromCity: 'Jakarta', to: 'PLM', toCity: 'Palembang', price: 480000, gradient: 'from-sky-500 to-blue-400' },
+const GRADIENTS = [
+  'from-blue-500 to-cyan-400',
+  'from-emerald-500 to-teal-400',
+  'from-violet-500 to-purple-400',
+  'from-orange-500 to-amber-400',
+  'from-rose-500 to-pink-400',
+  'from-indigo-500 to-blue-400',
+  'from-teal-500 to-emerald-400',
+  'from-sky-500 to-blue-400',
 ]
 
-export function PopularRoutes() {
+export interface PopularRoute {
+  from: string
+  fromCity: string
+  to: string
+  toCity: string
+  minPrice: number
+  flightCount: number
+}
+
+interface PopularRoutesProps {
+  routes: PopularRoute[]
+}
+
+export function PopularRoutes({ routes }: PopularRoutesProps) {
   const router = useRouter()
   const dateStr = format(addDays(new Date(), 7), 'yyyy-MM-dd')
+
+  if (routes.length === 0) return null
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
@@ -38,7 +53,7 @@ export function PopularRoutes() {
                 `/flights?from=${route.from}&to=${route.to}&date=${dateStr}&pax=1&class=economy`
               )
             }
-            className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${route.gradient} p-4 text-left text-white shadow-md transition-shadow hover:shadow-lg md:p-5`}
+            className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} p-4 text-left text-white shadow-md transition-shadow hover:shadow-lg md:p-5`}
           >
             <Plane className="absolute -bottom-2 -right-2 size-16 rotate-45 text-white/10" />
             <div className="relative">
@@ -48,7 +63,7 @@ export function PopularRoutes() {
                 <span>{route.toCity}</span>
               </div>
               <p className="text-xs text-white/80 md:text-sm">
-                Mulai dari {formatRupiah(route.price)}
+                Mulai dari {formatRupiah(route.minPrice)}
               </p>
             </div>
           </motion.button>
