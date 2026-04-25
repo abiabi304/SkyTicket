@@ -73,9 +73,10 @@ export async function POST(request: Request) {
       .single()
 
     if (bookingError) {
+      console.error('Booking insert error:', JSON.stringify(bookingError))
       // Rollback seats
       await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
-      return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
+      return NextResponse.json({ error: `Failed to create booking: ${bookingError.message}` }, { status: 500 })
     }
 
     // Create passengers
@@ -91,10 +92,11 @@ export async function POST(request: Request) {
       )
 
     if (passengersError) {
+      console.error('Passengers insert error:', JSON.stringify(passengersError))
       // Rollback: cancel booking + restore seats
       await serviceClient.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
       await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
-      return NextResponse.json({ error: 'Failed to create passengers' }, { status: 500 })
+      return NextResponse.json({ error: `Failed to create passengers: ${passengersError.message}` }, { status: 500 })
     }
 
     return NextResponse.json({ bookingId: booking.id, bookingCode })

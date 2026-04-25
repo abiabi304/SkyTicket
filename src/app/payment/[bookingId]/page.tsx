@@ -26,7 +26,7 @@ export default async function Payment({ params }: PaymentPageProps) {
 
   const serviceClient = await createServiceClient()
 
-  const [{ data: booking }, { data: profile }] = await Promise.all([
+  const [{ data: booking, error: bookingError }, { data: profile }] = await Promise.all([
     serviceClient
       .from('bookings')
       .select(`
@@ -47,6 +47,11 @@ export default async function Payment({ params }: PaymentPageProps) {
   ])
 
   if (!booking) {
+    console.error('[PAYMENT PAGE] Booking not found.', {
+      bookingId: params.bookingId,
+      userId: user.id,
+      error: bookingError ? JSON.stringify(bookingError) : 'null',
+    })
     redirect('/my-bookings')
   }
 
