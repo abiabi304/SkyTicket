@@ -8,6 +8,7 @@ export const BOOKING_STATUSES = {
   paid: 'Lunas',
   cancelled: 'Dibatalkan',
   expired: 'Kedaluwarsa',
+  rescheduling: 'Proses Reschedule',
 } as const
 
 export const PAYMENT_STATUSES = {
@@ -21,6 +22,10 @@ export const PAYMENT_STATUSES = {
 } as const
 
 export const BOOKING_EXPIRY_MINUTES = 15
+export const RESCHEDULE_EXPIRY_MINUTES = 30
+export const RESCHEDULE_FEE = 50000
+export const MAX_RESCHEDULES = 2
+export const MIN_RESCHEDULE_HOURS_BEFORE_DEPARTURE = 24
 
 export const TIME_FILTERS = [
   { value: 'pagi', label: 'Pagi (06:00 - 12:00)', startHour: 6, endHour: 12 },

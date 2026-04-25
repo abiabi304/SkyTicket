@@ -59,6 +59,9 @@ export interface Booking {
   passenger_count: number
   contact_email: string | null
   contact_phone: string | null
+  reschedule_count: number
+  original_flight_id: string | null
+  credit_balance: number
   created_at: string
   updated_at: string
   expires_at: string | null
@@ -101,7 +104,38 @@ export interface Payment {
   updated_at: string
 }
 
-export type BookingStatus = 'pending' | 'paid' | 'cancelled' | 'expired'
+export type BookingStatus = 'pending' | 'paid' | 'cancelled' | 'expired' | 'rescheduling'
+
+export interface Reschedule {
+  id: string
+  booking_id: string
+  from_flight_id: string
+  to_flight_id: string
+  price_difference: number
+  reschedule_fee: number
+  amount_due: number
+  payment_id: string | null
+  status: RescheduleStatus
+  expires_at: string | null
+  created_at: string
+  completed_at: string | null
+}
+
+export interface RescheduleWithDetails extends Reschedule {
+  from_flight: FlightWithDetails
+  to_flight: FlightWithDetails
+}
+
+export type RescheduleStatus = 'pending' | 'completed' | 'failed'
+
+export interface RescheduleInitResult {
+  reschedule_id: string
+  amount_due: number
+  requires_payment: boolean
+  new_total: number
+  price_difference: number
+  reschedule_fee: number
+}
 export type PaymentStatus = 'pending' | 'settlement' | 'capture' | 'deny' | 'cancel' | 'expire' | 'failure'
 export type SeatClass = 'economy' | 'business'
 
