@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { isValidUUID } from '@/lib/validators'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +12,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { success: rateLimitOk } = await rateLimit(`cancel:${user.id}`, 5, 60000)
+    if (!rateLimitOk) {
+      return NextResponse.json({ error: 'Terlalu banyak permintaan' }, { status: 429 })
+    }
+
     const { bookingId } = await request.json()
+
+    if (!bookingId || !isValidUUID(bookingId)) {
+      return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 })
+    }
 
     const serviceClient = await createServiceClient()
 

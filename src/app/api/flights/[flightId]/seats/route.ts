@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isValidUUID } from '@/lib/validators'
 import type { SeatLayout } from '@/lib/types'
 
 export async function GET(
@@ -8,6 +9,11 @@ export async function GET(
 ) {
   try {
     const { flightId } = await params
+
+    if (!isValidUUID(flightId)) {
+      return NextResponse.json({ error: 'Invalid flightId' }, { status: 400 })
+    }
+
     const supabase = await createClient()
 
     // Fetch flight with aircraft type

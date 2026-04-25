@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { generateBookingCode } from '@/lib/utils'
 import { BOOKING_EXPIRY_MINUTES } from '@/lib/constants'
 import { rateLimit } from '@/lib/rate-limit'
+import { isValidUUID } from '@/lib/validators'
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     // Rate limit: 5 bookings per minute per user
-    const { success: rateLimitOk } = rateLimit(`booking:${user.id}`, 5, 60000)
+    const { success: rateLimitOk } = await rateLimit(`booking:${user.id}`, 5, 60000)
     if (!rateLimitOk) {
       return NextResponse.json({ error: 'Terlalu banyak permintaan. Coba lagi nanti.' }, { status: 429 })
     }
@@ -24,6 +25,10 @@ export async function POST(request: Request) {
     // Validate required fields
     if (!flightId || !passengers?.length || !contactEmail || !contactPhone) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    if (!isValidUUID(flightId)) {
+      return NextResponse.json({ error: 'Invalid flightId' }, { status: 400 })
     }
 
     if (passengers.length < 1 || passengers.length > 5) {
@@ -136,7 +141,7 @@ export async function POST(request: Request) {
       if (!hasSeatAssignments) {
         await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
       }
-      return NextResponse.json({ error: `Failed to create booking: ${bookingError.message}` }, { status: 500 })
+      return NextResponse.json({ error: 'Gagal membuat booking' }, { status: 500 })
     }
 
     // Create passengers
@@ -159,7 +164,7 @@ export async function POST(request: Request) {
       if (!hasSeatAssignments) {
         await serviceClient.rpc('restore_seats', { p_flight_id: flightId, p_count: passengerCount })
       }
-      return NextResponse.json({ error: `Failed to create passengers: ${passengersError?.message}` }, { status: 500 })
+      return NextResponse.json({ error: 'Gagal membuat data penumpang' }, { status: 500 })
     }
 
     // Assign seats atomically if seat assignments provided
@@ -180,7 +185,7 @@ export async function POST(request: Request) {
           // Rollback everything
           await serviceClient.from('passengers').delete().eq('booking_id', booking.id)
           await serviceClient.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
-          return NextResponse.json({ error: seatError.message || 'Gagal menetapkan kursi' }, { status: 400 })
+          return NextResponse.json({ error: 'Gagal menetapkan kursi' }, { status: 400 })
         }
       }
     }

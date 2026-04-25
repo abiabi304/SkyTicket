@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createSnapClient } from '@/lib/midtrans/config'
 import { rateLimit } from '@/lib/rate-limit'
+import { isValidUUID } from '@/lib/validators'
 import type { BookingWithDetails } from '@/lib/types'
 
 export async function POST(request: Request) {
@@ -13,12 +14,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { success: rateLimitOk } = rateLimit(`payment:${user.id}`, 10, 60000)
+    const { success: rateLimitOk } = await rateLimit(`payment:${user.id}`, 10, 60000)
     if (!rateLimitOk) {
       return NextResponse.json({ error: 'Terlalu banyak permintaan. Coba lagi nanti.' }, { status: 429 })
     }
 
     const { bookingId } = await request.json()
+
+    if (!bookingId || !isValidUUID(bookingId)) {
+      return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 })
+    }
 
     // Use service client for all data operations (auth.uid() may be stale in RLS)
     const serviceClient = await createServiceClient()

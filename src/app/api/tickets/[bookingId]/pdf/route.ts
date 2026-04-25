@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { isValidUUID, escapeHtml } from '@/lib/validators'
+import { formatRupiah } from '@/lib/utils'
+import { rateLimit } from '@/lib/rate-limit'
 import type { BookingWithDetails } from '@/lib/types'
-
-function formatRupiah(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount).replace('IDR', 'Rp').trim()
-}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
@@ -31,14 +25,25 @@ function formatDuration(minutes: number): string {
 
 export async function GET(
   _request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
+    const { bookingId } = await params
+
+    if (!isValidUUID(bookingId)) {
+      return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 })
+    }
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { success: rateLimitOk } = await rateLimit(`ticket:${user.id}`, 10, 60000)
+    if (!rateLimitOk) {
+      return NextResponse.json({ error: 'Terlalu banyak permintaan' }, { status: 429 })
     }
 
     const serviceClient = await createServiceClient()
@@ -56,7 +61,7 @@ export async function GET(
         passengers(*),
         payment:payments(*)
       `)
-      .eq('id', params.bookingId)
+      .eq('id', bookingId)
       .eq('user_id', user.id)
       .single()
 
@@ -79,9 +84,9 @@ export async function GET(
     const passengersHtml = typedBooking.passengers.map((p, i) => `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280;">${i + 1}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:500;">${p.full_name}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280;">${p.id_type.toUpperCase()}: ${p.id_number ?? '-'}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280;">${p.seat_number ?? '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:500;">${escapeHtml(p.full_name)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280;">${escapeHtml(p.id_type.toUpperCase())}: ${escapeHtml(p.id_number ?? '-')}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280;">${escapeHtml(p.seat_number ?? '-')}</td>
       </tr>
     `).join('')
 
@@ -90,7 +95,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>E-Ticket ${typedBooking.booking_code} - SkyTicket</title>
+  <title>E-Ticket ${escapeHtml(typedBooking.booking_code)} - SkyTicket</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; padding: 24px; color: #1f2937; }
@@ -144,7 +149,7 @@ export async function GET(
       <div class="booking-info">
         <div>
           <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;margin-bottom:4px;">Kode Booking</div>
-          <div class="booking-code">${typedBooking.booking_code}</div>
+          <div class="booking-code">${escapeHtml(typedBooking.booking_code)}</div>
           <div class="booking-date">Dipesan pada ${formatDate(typedBooking.created_at)}</div>
         </div>
         <div class="qr-code">
@@ -155,18 +160,18 @@ export async function GET(
       <hr class="divider" />
 
       <div class="airline-row">
-        <div class="airline-badge">${typedBooking.flight.airline.code}</div>
+        <div class="airline-badge">${escapeHtml(typedBooking.flight.airline.code)}</div>
         <div>
-          <div class="airline-name">${typedBooking.flight.airline.name}</div>
-          <div class="airline-detail">${typedBooking.flight.flight_number} · ${typedBooking.flight.seat_class === 'business' ? 'Business' : 'Economy'} Class</div>
+          <div class="airline-name">${escapeHtml(typedBooking.flight.airline.name)}</div>
+          <div class="airline-detail">${escapeHtml(typedBooking.flight.flight_number)} · ${typedBooking.flight.seat_class === 'business' ? 'Business' : 'Economy'} Class</div>
         </div>
       </div>
 
       <div class="route">
         <div class="route-point">
           <div class="route-time">${formatTime(typedBooking.flight.departure_time)}</div>
-          <div class="route-code">${typedBooking.flight.departure_airport.code}</div>
-          <div class="route-city">${typedBooking.flight.departure_airport.city}</div>
+          <div class="route-code">${escapeHtml(typedBooking.flight.departure_airport.code)}</div>
+          <div class="route-city">${escapeHtml(typedBooking.flight.departure_airport.city)}</div>
           <div class="route-date">${formatDate(typedBooking.flight.departure_time)}</div>
         </div>
         <div class="route-middle">
@@ -180,8 +185,8 @@ export async function GET(
         </div>
         <div class="route-point">
           <div class="route-time">${formatTime(typedBooking.flight.arrival_time)}</div>
-          <div class="route-code">${typedBooking.flight.arrival_airport.code}</div>
-          <div class="route-city">${typedBooking.flight.arrival_airport.city}</div>
+          <div class="route-code">${escapeHtml(typedBooking.flight.arrival_airport.code)}</div>
+          <div class="route-city">${escapeHtml(typedBooking.flight.arrival_airport.city)}</div>
           <div class="route-date">${formatDate(typedBooking.flight.arrival_time)}</div>
         </div>
       </div>
@@ -216,7 +221,7 @@ export async function GET(
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Content-Disposition': `inline; filename="e-ticket-${typedBooking.booking_code}.html"`,
+        'Content-Disposition': `inline; filename="e-ticket-${encodeURIComponent(typedBooking.booking_code)}.html"`,
       },
     })
   } catch (error) {
