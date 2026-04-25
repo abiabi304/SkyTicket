@@ -44,7 +44,7 @@ export function DeleteFlightButton({ flightId, flightNumber }: DeleteFlightButto
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="destructive" size="icon">
+        <Button variant="destructive" size="icon" aria-label={`Hapus ${flightNumber}`}>
           <Trash2 className="size-4" />
         </Button>
       </DialogTrigger>

@@ -152,114 +152,116 @@ export default async function AdminFlightsPage({
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-semibold">Penerbangan</TableHead>
-                  <TableHead className="font-semibold">Rute</TableHead>
-                  <TableHead className="font-semibold">Tanggal & Waktu</TableHead>
-                  <TableHead className="font-semibold">Kelas</TableHead>
-                  <TableHead className="font-semibold text-right">Harga</TableHead>
-                  <TableHead className="font-semibold text-center">Kursi</TableHead>
-                  <TableHead className="font-semibold text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {typedFlights.map((flight) => (
-                  <TableRow key={flight.id}>
-                    {/* Flight # + Airline */}
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                          {flight.airline?.code}
-                        </div>
-                        <div>
-                          <p className="font-medium">{flight.flight_number}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {flight.airline?.name}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-
-                    {/* Route */}
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <span className="font-medium">
-                          {flight.departure_airport?.code}
-                        </span>
-                        <ArrowRight className="size-3 text-muted-foreground" />
-                        <span className="font-medium">
-                          {flight.arrival_airport?.code}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {flight.departure_airport?.city} — {flight.arrival_airport?.city}
-                      </p>
-                    </TableCell>
-
-                    {/* Date & Time */}
-                    <TableCell>
-                      <p className="text-sm font-medium">
-                        {formatDateShort(flight.departure_time)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatTime(flight.departure_time)} – {formatTime(flight.arrival_time)} ({flight.duration_minutes}m)
-                      </p>
-                    </TableCell>
-
-                    {/* Class */}
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={
-                          flight.seat_class === 'business'
-                            ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100'
-                            : 'bg-sky-100 text-sky-800 border-sky-200 hover:bg-sky-100'
-                        }
-                      >
-                        {flight.seat_class === 'business' ? 'Business' : 'Economy'}
-                      </Badge>
-                    </TableCell>
-
-                    {/* Price */}
-                    <TableCell className="text-right">
-                      <p className="font-semibold">{formatRupiah(flight.price)}</p>
-                    </TableCell>
-
-                    {/* Seats */}
-                    <TableCell className="text-center">
-                      <span
-                        className={`inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          flight.available_seats <= 5
-                            ? 'bg-red-100 text-red-700'
-                            : flight.available_seats <= 20
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-green-100 text-green-700'
-                        }`}
-                      >
-                        {flight.available_seats}
-                      </span>
-                    </TableCell>
-
-                    {/* Actions */}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button variant="outline" size="icon" className="size-8" asChild>
-                          <Link href={`/admin/flights/${flight.id}`}>
-                            <Pencil className="size-3.5" />
-                          </Link>
-                        </Button>
-                        <DeleteFlightButton
-                          flightId={flight.id}
-                          flightNumber={flight.flight_number}
-                        />
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="font-semibold">Penerbangan</TableHead>
+                    <TableHead className="font-semibold">Rute</TableHead>
+                    <TableHead className="font-semibold">Tanggal & Waktu</TableHead>
+                    <TableHead className="font-semibold">Kelas</TableHead>
+                    <TableHead className="font-semibold text-right">Harga</TableHead>
+                    <TableHead className="font-semibold text-center">Kursi</TableHead>
+                    <TableHead className="font-semibold text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {typedFlights.map((flight) => (
+                    <TableRow key={flight.id}>
+                      {/* Flight # + Airline */}
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                            {flight.airline?.code}
+                          </div>
+                          <div>
+                            <p className="font-medium">{flight.flight_number}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {flight.airline?.name}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Route */}
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <span className="font-medium">
+                            {flight.departure_airport?.code}
+                          </span>
+                          <ArrowRight className="size-3 text-muted-foreground" />
+                          <span className="font-medium">
+                            {flight.arrival_airport?.code}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {flight.departure_airport?.city} — {flight.arrival_airport?.city}
+                        </p>
+                      </TableCell>
+
+                      {/* Date & Time */}
+                      <TableCell>
+                        <p className="text-sm font-medium">
+                          {formatDateShort(flight.departure_time)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTime(flight.departure_time)} – {formatTime(flight.arrival_time)} ({flight.duration_minutes}m)
+                        </p>
+                      </TableCell>
+
+                      {/* Class */}
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className={
+                            flight.seat_class === 'business'
+                              ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100'
+                              : 'bg-sky-100 text-sky-800 border-sky-200 hover:bg-sky-100'
+                          }
+                        >
+                          {flight.seat_class === 'business' ? 'Business' : 'Economy'}
+                        </Badge>
+                      </TableCell>
+
+                      {/* Price */}
+                      <TableCell className="text-right">
+                        <p className="font-semibold">{formatRupiah(flight.price)}</p>
+                      </TableCell>
+
+                      {/* Seats */}
+                      <TableCell className="text-center">
+                        <span
+                          className={`inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            flight.available_seats <= 5
+                              ? 'bg-red-100 text-red-700'
+                              : flight.available_seats <= 20
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}
+                        >
+                          {flight.available_seats}
+                        </span>
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button variant="outline" size="icon" className="size-8" asChild aria-label={`Edit ${flight.flight_number}`}>
+                            <Link href={`/admin/flights/${flight.id}`}>
+                              <Pencil className="size-3.5" />
+                            </Link>
+                          </Button>
+                          <DeleteFlightButton
+                            flightId={flight.id}
+                            flightNumber={flight.flight_number}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

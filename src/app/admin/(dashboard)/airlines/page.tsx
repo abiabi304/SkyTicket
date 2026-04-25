@@ -70,40 +70,42 @@ export default async function AdminAirlinesPage({
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-semibold">Kode</TableHead>
-                  <TableHead className="font-semibold">Nama Maskapai</TableHead>
-                  <TableHead className="font-semibold text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {typedAirlines.map((airline) => (
-                  <TableRow key={airline.id}>
-                    <TableCell>
-                      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                        {airline.code}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium">{airline.name}</p>
-                      <p className="text-xs text-muted-foreground">Kode: {airline.code}</p>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button variant="outline" size="icon" className="size-8" asChild>
-                          <Link href={`/admin/airlines/${airline.id}`}>
-                            <Pencil className="size-3.5" />
-                          </Link>
-                        </Button>
-                        <DeleteItemButton table="airlines" itemId={airline.id} itemName={airline.name} />
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="font-semibold">Kode</TableHead>
+                    <TableHead className="font-semibold">Nama Maskapai</TableHead>
+                    <TableHead className="font-semibold text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {typedAirlines.map((airline) => (
+                    <TableRow key={airline.id}>
+                      <TableCell>
+                        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {airline.code}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium">{airline.name}</p>
+                        <p className="text-xs text-muted-foreground">Kode: {airline.code}</p>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button variant="outline" size="icon" className="size-8" asChild>
+                            <Link href={`/admin/airlines/${airline.id}`}>
+                              <Pencil className="size-3.5" />
+                            </Link>
+                          </Button>
+                          <DeleteItemButton table="airlines" itemId={airline.id} itemName={airline.name} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

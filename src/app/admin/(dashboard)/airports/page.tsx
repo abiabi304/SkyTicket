@@ -70,47 +70,49 @@ export default async function AdminAirportsPage({
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-semibold">Kode</TableHead>
-                  <TableHead className="font-semibold">Kota</TableHead>
-                  <TableHead className="font-semibold">Nama Bandara</TableHead>
-                  <TableHead className="font-semibold">Negara</TableHead>
-                  <TableHead className="font-semibold text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {typedAirports.map((airport) => (
-                  <TableRow key={airport.id}>
-                    <TableCell>
-                      <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-100 text-xs font-bold text-emerald-700">
-                        {airport.code}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium">{airport.city}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-muted-foreground">{airport.name}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm">{airport.country}</p>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button variant="outline" size="icon" className="size-8" asChild>
-                          <Link href={`/admin/airports/${airport.id}`}>
-                            <Pencil className="size-3.5" />
-                          </Link>
-                        </Button>
-                        <DeleteItemButton table="airports" itemId={airport.id} itemName={`${airport.code} - ${airport.city}`} />
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="font-semibold">Kode</TableHead>
+                    <TableHead className="font-semibold">Kota</TableHead>
+                    <TableHead className="font-semibold">Nama Bandara</TableHead>
+                    <TableHead className="font-semibold">Negara</TableHead>
+                    <TableHead className="font-semibold text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {typedAirports.map((airport) => (
+                    <TableRow key={airport.id}>
+                      <TableCell>
+                        <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-100 text-xs font-bold text-emerald-700">
+                          {airport.code}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium">{airport.city}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm text-muted-foreground">{airport.name}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm">{airport.country}</p>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button variant="outline" size="icon" className="size-8" asChild>
+                            <Link href={`/admin/airports/${airport.id}`}>
+                              <Pencil className="size-3.5" />
+                            </Link>
+                          </Button>
+                          <DeleteItemButton table="airports" itemId={airport.id} itemName={`${airport.code} - ${airport.city}`} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
