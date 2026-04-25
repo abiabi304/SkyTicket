@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 import { Home, Search, FileText, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const navItems: Array<{ href: string; label: string; icon: typeof Home; matchPath?: string }> = [
+const navItems: Array<{ href: string; label: string; icon: typeof Home; matchPrefix?: string }> = [
   { href: '/', label: 'Beranda', icon: Home },
-  { href: '/', label: 'Cari', icon: Search },
-  { href: '/my-bookings', label: 'Pesanan', icon: FileText },
-  { href: '/profile', label: 'Profil', icon: User },
+  { href: '/#search', label: 'Cari', icon: Search },
+  { href: '/my-bookings', label: 'Pesanan', icon: FileText, matchPrefix: '/my-bookings' },
+  { href: '/profile', label: 'Profil', icon: User, matchPrefix: '/profile' },
 ]
 
 export function MobileNav() {
@@ -19,9 +19,9 @@ export function MobileNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-md md:hidden">
       <div className="flex items-center justify-around pb-[env(safe-area-inset-bottom)]">
         {navItems.map((item) => {
-          const isActive = item.matchPath
-            ? pathname.startsWith(item.matchPath)
-            : pathname === item.href
+          const isActive = item.matchPrefix
+            ? pathname.startsWith(item.matchPrefix)
+            : pathname === item.href || pathname === item.href.replace('/#search', '/')
           return (
             <Link
               key={item.label}

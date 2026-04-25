@@ -24,7 +24,9 @@ export function HeroSection({ airports }: HeroSectionProps) {
           </p>
         </div>
 
-        <SearchForm airports={airports} />
+        <div id="search">
+          <SearchForm airports={airports} />
+        </div>
       </div>
     </section>
   )

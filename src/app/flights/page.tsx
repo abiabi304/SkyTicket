@@ -55,7 +55,9 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
     arrAirportId = arrAirport?.id ?? null
   }
 
-  // Build flight query
+  // Build flight query — always exclude past flights
+  const now = new Date().toISOString()
+
   let query = supabase
     .from('flights')
     .select(`
@@ -65,6 +67,7 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
       arrival_airport:airports!flights_arrival_airport_id_fkey(*)
     `)
     .gte('available_seats', passengerCount)
+    .gt('departure_time', now)
 
   if (depAirportId) {
     query = query.eq('departure_airport_id', depAirportId)

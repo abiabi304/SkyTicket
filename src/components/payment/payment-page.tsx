@@ -50,6 +50,7 @@ export function PaymentPage({ booking }: PaymentPageProps) {
   const router = useRouter()
   const supabase = createClient()
   const [snapReady, setSnapReady] = useState(false)
+  const [snapError, setSnapError] = useState(false)
   const [loading, setLoading] = useState(false)
   const [snapShown, setSnapShown] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
@@ -164,6 +165,7 @@ export function PaymentPage({ booking }: PaymentPageProps) {
         src={process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'}
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
         onReady={() => setSnapReady(true)}
+        onError={() => setSnapError(true)}
         strategy="afterInteractive"
       />
 
@@ -184,29 +186,45 @@ export function PaymentPage({ booking }: PaymentPageProps) {
             <FlightSummaryCard flight={booking.flight} />
             <PaymentSummary booking={booking} />
 
-            <Button
-              onClick={handlePay}
-              disabled={loading || !snapReady || booking.status !== 'pending'}
-              className="h-12 w-full text-base"
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 size-5 animate-spin" />
-                  Memproses...
-                </>
-              ) : !snapReady ? (
-                <>
-                  <Loader2 className="mr-2 size-5 animate-spin" />
-                  Memuat gateway...
-                </>
-              ) : (
-                <>
-                  <CreditCard className="mr-2 size-5" />
-                  Pilih Metode Pembayaran — {formatRupiah(booking.total_price)}
-                </>
-              )}
-            </Button>
+            {snapError ? (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-center">
+                <p className="text-sm font-medium text-destructive">
+                  Gagal memuat payment gateway
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => window.location.reload()}
+                >
+                  Coba Lagi
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={handlePay}
+                disabled={loading || !snapReady || booking.status !== 'pending'}
+                className="h-12 w-full text-base"
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 size-5 animate-spin" />
+                    Memproses...
+                  </>
+                ) : !snapReady ? (
+                  <>
+                    <Loader2 className="mr-2 size-5 animate-spin" />
+                    Memuat gateway...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="mr-2 size-5" />
+                    Pilih Metode Pembayaran — {formatRupiah(booking.total_price)}
+                  </>
+                )}
+              </Button>
+            )}
           </>
         )}
 
