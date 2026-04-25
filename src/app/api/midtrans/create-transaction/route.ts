@@ -49,12 +49,9 @@ export async function POST(request: Request) {
       .eq('booking_id', bookingId)
       .eq('status', 'pending')
 
-    // Check expiry
+    // Check expiry — atomically expire + restore seats via RPC
     if (typedBooking.expires_at && new Date(typedBooking.expires_at) < new Date()) {
-      await supabase
-        .from('bookings')
-        .update({ status: 'expired' })
-        .eq('id', bookingId)
+      await serviceClient.rpc('expire_booking', { p_booking_id: bookingId })
       return NextResponse.json({ error: 'Booking has expired' }, { status: 400 })
     }
 

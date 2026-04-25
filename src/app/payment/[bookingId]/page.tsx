@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
@@ -56,8 +56,23 @@ export default async function Payment({ params }: PaymentPageProps) {
     redirect(`/my-bookings/${params.bookingId}`)
   }
 
+  // Server-side expiry guard: if booking is pending but time has passed, expire atomically + restore seats
+  if (
+    typedBooking.status === 'pending' &&
+    typedBooking.expires_at &&
+    new Date(typedBooking.expires_at) < new Date()
+  ) {
+    const serviceClient = await createServiceClient()
+    await serviceClient.rpc('expire_booking', { p_booking_id: params.bookingId })
+    redirect(`/payment/status/${params.bookingId}`)
+  }
+
   if (typedBooking.status === 'expired' || typedBooking.status === 'cancelled') {
     redirect(`/payment/status/${params.bookingId}`)
+  }
+
+  if (typedBooking.status === 'rescheduling') {
+    redirect(`/my-bookings/${params.bookingId}`)
   }
 
   return (

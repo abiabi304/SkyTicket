@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Clock } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 interface BookingTimerProps {
@@ -14,6 +13,7 @@ interface BookingTimerProps {
 export function BookingTimer({ expiresAt, bookingId }: BookingTimerProps) {
   const router = useRouter()
   const [timeLeft, setTimeLeft] = useState<number>(0)
+  const expiredRef = useRef(false)
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -27,18 +27,18 @@ export function BookingTimer({ expiresAt, bookingId }: BookingTimerProps) {
       const remaining = calculateTimeLeft()
       setTimeLeft(remaining)
 
-      if (remaining <= 0) {
+      if (remaining <= 0 && !expiredRef.current) {
+        expiredRef.current = true
         clearInterval(interval)
-        const supabase = createClient()
-        // Only expire if still pending (guard against race with payment)
-        supabase
-          .from('bookings')
-          .update({ status: 'expired', updated_at: new Date().toISOString() })
-          .eq('id', bookingId)
-          .eq('status', 'pending')
-          .then(() => {
-            router.refresh()
-          })
+
+        // Call server API to atomically expire booking + restore seats
+        fetch('/api/bookings/expire', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId }),
+        }).finally(() => {
+          router.refresh()
+        })
       }
     }, 1000)
 
