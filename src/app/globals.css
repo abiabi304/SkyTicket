@@ -54,12 +54,57 @@
   background: hsl(220 13% 70%);
 }
 
-/* Print styles for e-ticket */
+/* Print styles — only e-ticket visible */
 @media print {
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the e-ticket area and its children */
+  #e-ticket-print,
+  #e-ticket-print * {
+    visibility: visible;
+  }
+
+  /* Position e-ticket at top of page */
+  #e-ticket-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Hide elements explicitly marked no-print */
   .no-print {
     display: none !important;
   }
+
+  /* Clean print background */
   body {
     background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove shadows and borders for cleaner print */
+  #e-ticket-print .shadow-sm,
+  #e-ticket-print .shadow-md,
+  #e-ticket-print .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  /* Ensure colors print correctly */
+  #e-ticket-print [class*="bg-primary"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page settings */
+  @page {
+    margin: 10mm;
+    size: A4;
   }
 }
