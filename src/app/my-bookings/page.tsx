@@ -8,7 +8,7 @@ import { MobileNav } from '@/components/layout/mobile-nav'
 import { Footer } from '@/components/layout/footer'
 import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
-import { BookingCard } from '@/components/my-bookings/booking-card'
+import { BookingList } from '@/components/my-bookings/booking-list'
 import type { Profile } from '@/lib/types'
 import type { Metadata } from 'next'
 
@@ -53,7 +53,7 @@ export default async function MyBookingsPage() {
         <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
           <PageHeader title="Pesanan Saya" subtitle="Riwayat pemesanan tiket Anda" />
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-6">
             {!bookings || bookings.length === 0 ? (
               <EmptyState
                 icon={FileText}
@@ -63,9 +63,7 @@ export default async function MyBookingsPage() {
                 actionHref="/"
               />
             ) : (
-              bookings.map((booking) => (
-                <BookingCard key={booking.id} booking={booking} />
-              ))
+              <BookingList bookings={bookings} />
             )}
           </div>
         </div>
