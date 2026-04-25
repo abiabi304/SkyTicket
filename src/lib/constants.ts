@@ -47,5 +47,5 @@ export const MIDTRANS_SNAP_JS_URL =
     : 'https://app.sandbox.midtrans.com/snap/snap.js'
 
 // WhatsApp CS
-export const CS_WHATSAPP_NUMBER = '6281234567890' // Ganti dengan nomor WA CS
+export const CS_WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_CS_WHATSAPP_NUMBER || '6281234567890'
 export const CS_WHATSAPP_MESSAGE = 'Halo SkyTicket, saya butuh bantuan.'
