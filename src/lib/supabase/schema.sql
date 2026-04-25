@@ -230,6 +230,23 @@ CREATE POLICY "Users read own reschedules" ON public.reschedules FOR SELECT USIN
 CREATE POLICY "Admin read all reschedules" ON public.reschedules FOR SELECT USING (public.is_admin());
 
 -- =============================================
+-- Performance Indexes
+-- =============================================
+
+CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON public.bookings(user_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_status_expires ON public.bookings(status, expires_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_bookings_flight_id ON public.bookings(flight_id);
+CREATE INDEX IF NOT EXISTS idx_flights_departure_airport ON public.flights(departure_airport_id);
+CREATE INDEX IF NOT EXISTS idx_flights_arrival_airport ON public.flights(arrival_airport_id);
+CREATE INDEX IF NOT EXISTS idx_flights_departure_time ON public.flights(departure_time);
+CREATE INDEX IF NOT EXISTS idx_flights_seat_class ON public.flights(seat_class);
+CREATE INDEX IF NOT EXISTS idx_passengers_booking_id ON public.passengers(booking_id);
+CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON public.payments(booking_id);
+CREATE INDEX IF NOT EXISTS idx_payments_midtrans_order ON public.payments(midtrans_order_id);
+CREATE INDEX IF NOT EXISTS idx_reschedules_booking_status ON public.reschedules(booking_id, status);
+CREATE INDEX IF NOT EXISTS idx_reschedules_payment_id ON public.reschedules(payment_id);
+
+-- =============================================
 -- Atomic Seat Management RPCs
 -- =============================================
 
