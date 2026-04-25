@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { PageHeader } from '@/components/shared/page-header'
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, CheckCircle2, ArrowRight, CalendarClock, Plane } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatRupiah } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import { RESCHEDULE_FEE, MAX_RESCHEDULES } from '@/lib/constants'
 import type { BookingWithDetails, FlightWithDetails, RescheduleInitResult } from '@/lib/types'
 
@@ -24,9 +25,11 @@ interface ReschedulePageProps {
 
 export function ReschedulePage({ booking, availableFlights }: ReschedulePageProps) {
   const router = useRouter()
+  const supabase = createClient()
   const [selectedFlight, setSelectedFlight] = useState<FlightWithDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const [snapReady, setSnapReady] = useState(false)
+  const [snapShown, setSnapShown] = useState(false)
   const [success, setSuccess] = useState(false)
   const [rescheduleResult, setRescheduleResult] = useState<RescheduleInitResult | null>(null)
   const processingRef = useRef(false)
@@ -40,9 +43,38 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
     ? Math.max(0, priceDiff + RESCHEDULE_FEE - booking.credit_balance)
     : 0
 
+  // Realtime: auto-redirect when booking status changes to 'paid' (after webhook)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`reschedule-${booking.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'bookings',
+          filter: `id=eq.${booking.id}`,
+        },
+        (payload) => {
+          const newStatus = (payload.new as { status: string }).status
+          if (newStatus === 'paid') {
+            setSuccess(true)
+            toast.success('Reschedule berhasil!')
+            setTimeout(() => {
+              router.push(`/my-bookings/${booking.id}`)
+            }, 2000)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [booking.id, supabase, router])
+
   const handleSelectFlight = (flight: FlightWithDetails) => {
     setSelectedFlight(flight)
-    // Scroll to summary after selection
     setTimeout(() => {
       summaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }, 100)
@@ -96,26 +128,26 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
         throw new Error(payData.error || 'Gagal membuat pembayaran')
       }
 
-      // Step 3: Show Midtrans Snap popup
-      // Hide any existing snap instance first to avoid state conflict
-      try { window.snap.hide() } catch { /* no-op if nothing to hide */ }
+      // Step 3: Show Midtrans Snap embedded (same as booking payment)
+      setSnapShown(true)
 
-      window.snap.pay(payData.snapToken, {
+      try { window.snap.hide() } catch { /* no-op */ }
+
+      window.snap.embed(payData.snapToken, {
+        embedId: 'snap-reschedule-container',
         onSuccess: () => {
           setSuccess(true)
           toast.success('Reschedule berhasil!')
           setTimeout(() => {
             router.push(`/my-bookings/${booking.id}`)
-            router.refresh()
           }, 2000)
         },
         onPending: () => {
           toast.info('Menunggu pembayaran...')
-          setLoading(false)
-          processingRef.current = false
         },
         onError: () => {
           toast.error('Pembayaran gagal')
+          setSnapShown(false)
           if (result.reschedule_id) {
             fetch('/api/reschedule/expire', {
               method: 'POST',
@@ -127,6 +159,7 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
           processingRef.current = false
         },
         onClose: () => {
+          setSnapShown(false)
           setLoading(false)
           processingRef.current = false
         },
@@ -196,90 +229,101 @@ export function ReschedulePage({ booking, availableFlights }: ReschedulePageProp
           <FlightSummaryCard flight={booking.flight} />
         </div>
 
-        {/* Arrow */}
-        <div className="flex justify-center">
-          <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-            <ArrowRight className="size-5 rotate-90 text-primary" />
-          </div>
-        </div>
-
-        {/* Available flights */}
-        <div>
-          <h3 className="mb-3 text-sm font-medium text-muted-foreground">
-            Pilih Penerbangan Baru
-            <Badge variant="secondary" className="ml-2">
-              {availableFlights.length} tersedia
-            </Badge>
-          </h3>
-
-          {availableFlights.length === 0 ? (
-            <EmptyState
-              icon={Plane}
-              title="Tidak ada penerbangan tersedia"
-              description="Tidak ada penerbangan lain pada rute dan kelas yang sama"
-            />
-          ) : (
-            <div className="space-y-3">
-              {availableFlights.map((flight) => (
-                <RescheduleFlightCard
-                  key={flight.id}
-                  flight={flight}
-                  currentPrice={booking.total_price}
-                  passengerCount={booking.passenger_count}
-                  isSelected={selectedFlight?.id === flight.id}
-                  onSelect={() => handleSelectFlight(flight)}
-                />
-              ))}
+        {!snapShown && (
+          <>
+            {/* Arrow */}
+            <div className="flex justify-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
+                <ArrowRight className="size-5 rotate-90 text-primary" />
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Summary (scroll target) */}
-        {selectedFlight && (
-          <div ref={summaryRef}>
-            <RescheduleSummary
-              currentFlight={booking.flight}
-              newFlight={selectedFlight}
-              passengerCount={booking.passenger_count}
-              currentTotal={booking.total_price}
-              creditBalance={booking.credit_balance}
-              rescheduleResult={rescheduleResult}
-            />
-          </div>
-        )}
+            {/* Available flights */}
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                Pilih Penerbangan Baru
+                <Badge variant="secondary" className="ml-2">
+                  {availableFlights.length} tersedia
+                </Badge>
+              </h3>
 
-        {/* Desktop confirm button */}
-        {selectedFlight && (
-          <div className="hidden md:block">
-            <Button
-              onClick={handleReschedule}
-              disabled={loading || (amountDue > 0 && !snapReady)}
-              className="h-12 w-full text-base"
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 size-5 animate-spin" />
-                  Memproses...
-                </>
-              ) : amountDue > 0 ? (
-                <>
-                  <CalendarClock className="mr-2 size-5" />
-                  Reschedule & Bayar {formatRupiah(amountDue)}
-                </>
+              {availableFlights.length === 0 ? (
+                <EmptyState
+                  icon={Plane}
+                  title="Tidak ada penerbangan tersedia"
+                  description="Tidak ada penerbangan lain pada rute dan kelas yang sama"
+                />
               ) : (
-                <>
-                  <CalendarClock className="mr-2 size-5" />
-                  Konfirmasi Reschedule
-                </>
+                <div className="space-y-3">
+                  {availableFlights.map((flight) => (
+                    <RescheduleFlightCard
+                      key={flight.id}
+                      flight={flight}
+                      currentPrice={booking.total_price}
+                      passengerCount={booking.passenger_count}
+                      isSelected={selectedFlight?.id === flight.id}
+                      onSelect={() => handleSelectFlight(flight)}
+                    />
+                  ))}
+                </div>
               )}
-            </Button>
-          </div>
+            </div>
+
+            {/* Summary (scroll target) */}
+            {selectedFlight && (
+              <div ref={summaryRef}>
+                <RescheduleSummary
+                  currentFlight={booking.flight}
+                  newFlight={selectedFlight}
+                  passengerCount={booking.passenger_count}
+                  currentTotal={booking.total_price}
+                  creditBalance={booking.credit_balance}
+                  rescheduleResult={rescheduleResult}
+                />
+              </div>
+            )}
+
+            {/* Desktop confirm button */}
+            {selectedFlight && (
+              <div className="hidden md:block">
+                <Button
+                  onClick={handleReschedule}
+                  disabled={loading || (amountDue > 0 && !snapReady)}
+                  className="h-12 w-full text-base"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 size-5 animate-spin" />
+                      Memproses...
+                    </>
+                  ) : amountDue > 0 ? (
+                    <>
+                      <CalendarClock className="mr-2 size-5" />
+                      Reschedule & Bayar {formatRupiah(amountDue)}
+                    </>
+                  ) : (
+                    <>
+                      <CalendarClock className="mr-2 size-5" />
+                      Konfirmasi Reschedule
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
         )}
+
+        {/* Snap Embedded Container */}
+        <Card className={snapShown ? '' : 'hidden'}>
+          <CardContent className="p-0">
+            <div id="snap-reschedule-container" className="min-h-[500px] w-full" />
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Mobile sticky bottom bar */}
-      {selectedFlight && (
+      {/* Mobile sticky bottom bar — only show when not in payment */}
+      {selectedFlight && !snapShown && (
         <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background p-4 shadow-lg md:hidden">
           <div className="mx-auto max-w-3xl">
             <div className="mb-2 flex items-center justify-between text-sm">
