@@ -1,14 +1,15 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { fail } from './responses'
 
-export async function requireMobileUser(request: Request) {
+function bearerTokenFrom(request: Request) {
   const authHeader = request.headers.get('authorization')
-  const token = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]
+  return authHeader?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null
+}
 
-  if (!token) {
-    return { error: fail('Unauthorized', 401) }
-  }
+async function getBearerUser(request: Request) {
+  const token = bearerTokenFrom(request)
+  if (!token) return null
 
   const supabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,4 +52,29 @@ export async function requireMobileUser(request: Request) {
   }
 
   return { supabase, serviceClient, user, profile }
+}
+
+export async function requireMobileUser(request: Request) {
+  const auth = await getBearerUser(request)
+  if (!auth) {
+    return { error: fail('Unauthorized', 401) }
+  }
+  return auth
+}
+
+export async function requireAuthenticatedUser(request: Request) {
+  const bearerAuth = await getBearerUser(request)
+  if (bearerAuth) return bearerAuth
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: fail('Unauthorized', 401) }
+  }
+
+  const serviceClient = await createServiceClient()
+  return { supabase, serviceClient, user, profile: null }
 }

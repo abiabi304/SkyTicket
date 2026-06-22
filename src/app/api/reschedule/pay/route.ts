@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { requireAuthenticatedUser } from '@/lib/mobile-api/auth'
 import { createSnapClient } from '@/lib/midtrans/config'
 import { isValidUUID } from '@/lib/validators'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const auth = await requireAuthenticatedUser(request)
+    if ('error' in auth) return auth.error
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { serviceClient, user } = auth
 
     const { success: rateLimitOk } = await rateLimit(`respay:${user.id}`, 5, 60000)
     if (!rateLimitOk) {
@@ -23,8 +21,6 @@ export async function POST(request: Request) {
     if (!rescheduleId || !isValidUUID(rescheduleId)) {
       return NextResponse.json({ error: 'Invalid rescheduleId' }, { status: 400 })
     }
-
-    const serviceClient = await createServiceClient()
 
     // Fetch reschedule with booking details
     const { data: reschedule } = await serviceClient
@@ -62,13 +58,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Reschedule has expired' }, { status: 400 })
     }
 
+    const amountDue = Number(reschedule.amount_due ?? 0)
+    if (amountDue <= 0) {
+      const { data: completed } = await serviceClient.rpc('complete_reschedule', {
+        p_reschedule_id: rescheduleId,
+        p_payment_id: null,
+      })
+
+      if (!completed) {
+        return NextResponse.json({ error: 'Gagal menyelesaikan reschedule' }, { status: 400 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        requiresPayment: false,
+      })
+    }
+
     const orderId = `RSC-${(booking.booking_code as string)}-${Date.now()}`
     const snap = createSnapClient()
 
     const parameter = {
       transaction_details: {
         order_id: orderId,
-        gross_amount: reschedule.amount_due,
+        gross_amount: amountDue,
       },
       customer_details: {
         first_name: user.user_metadata?.full_name ?? user.email,
@@ -78,7 +91,7 @@ export async function POST(request: Request) {
       item_details: [
         {
           id: `reschedule-${rescheduleId}`,
-          price: reschedule.amount_due,
+          price: amountDue,
           quantity: 1,
           name: `Reschedule Fee - ${(booking.booking_code as string)}`,
         },
@@ -110,6 +123,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       snapToken: transaction.token,
+      redirectUrl: transaction.redirect_url,
       orderId,
     })
   } catch (error) {

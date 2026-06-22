@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { requireAuthenticatedUser } from '@/lib/mobile-api/auth'
+import { isValidIndonesianPhone } from '@/lib/mobile-api/validators'
 import { generateBookingCode } from '@/lib/utils'
 import { BOOKING_EXPIRY_MINUTES } from '@/lib/constants'
 import { rateLimit } from '@/lib/rate-limit'
@@ -7,12 +8,10 @@ import { isValidUUID } from '@/lib/validators'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const auth = await requireAuthenticatedUser(request)
+    if ('error' in auth) return auth.error
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { serviceClient, user } = auth
 
     // Rate limit: 5 bookings per minute per user
     const { success: rateLimitOk } = await rateLimit(`booking:${user.id}`, 5, 60000)
@@ -40,8 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Format email tidak valid' }, { status: 400 })
     }
 
-    const phoneClean = contactPhone.replace(/[\s\-()]/g, '')
-    if (!/^(\+62|62|0)8\d{7,12}$/.test(phoneClean)) {
+    if (!isValidIndonesianPhone(contactPhone)) {
       return NextResponse.json({ error: 'Format nomor telepon tidak valid' }, { status: 400 })
     }
 
@@ -62,12 +60,32 @@ export async function POST(request: Request) {
     }
 
     const passengerCount = passengers.length
-    const serviceClient = await createServiceClient()
+
+    if (seatAssignments != null && (typeof seatAssignments !== 'object' || Array.isArray(seatAssignments))) {
+      return NextResponse.json({ error: 'Format pilihan kursi tidak valid' }, { status: 400 })
+    }
+
+    const rawSeatAssignmentMap = (seatAssignments ?? {}) as Record<string, unknown>
+    const seatAssignmentMap = Object.fromEntries(
+      Object.entries(rawSeatAssignmentMap).map(([passengerIndex, seatLabel]) => [passengerIndex, String(seatLabel).trim()])
+    )
+    const seatLabels = Object.values(seatAssignmentMap).filter(Boolean)
+    const hasSeatAssignments = seatLabels.length > 0
+
+    if (hasSeatAssignments) {
+      if (seatLabels.length !== passengerCount) {
+        return NextResponse.json({ error: 'Jumlah kursi yang dipilih harus sesuai jumlah penumpang' }, { status: 400 })
+      }
+
+      if (new Set(seatLabels).size !== seatLabels.length) {
+        return NextResponse.json({ error: 'Kursi yang dipilih tidak boleh duplikat' }, { status: 400 })
+      }
+    }
 
     // Check flight exists and has enough seats
     const { data: flight } = await serviceClient
       .from('flights')
-      .select('id, price, available_seats, aircraft_type_id')
+      .select('id, price, available_seats, aircraft_type_id, seat_class')
       .eq('id', flightId)
       .single()
 
@@ -83,24 +101,31 @@ export async function POST(request: Request) {
 
     // Calculate total price including seat modifiers
     let seatModifierTotal = 0
-    const hasSeatAssignments = seatAssignments && Object.keys(seatAssignments).length > 0
 
     if (hasSeatAssignments) {
       // Validate seat assignments and calculate modifiers
-      const seatLabels = Object.values(seatAssignments) as string[]
-      const { data: seats } = await serviceClient
+      const { data: seats, error: seatsError } = await serviceClient
         .from('flight_seats')
-        .select('seat_label, price_modifier, is_available')
+        .select('seat_label, seat_class, price_modifier, is_available')
         .eq('flight_id', flightId)
         .in('seat_label', seatLabels)
 
-      if (seats) {
-        for (const seat of seats) {
-          if (!seat.is_available) {
-            return NextResponse.json({ error: `Kursi ${seat.seat_label} sudah tidak tersedia` }, { status: 400 })
-          }
-          seatModifierTotal += seat.price_modifier
+      if (seatsError) {
+        return NextResponse.json({ error: 'Gagal memvalidasi kursi' }, { status: 500 })
+      }
+
+      if (!seats || seats.length !== seatLabels.length) {
+        return NextResponse.json({ error: 'Kursi yang dipilih tidak ditemukan' }, { status: 400 })
+      }
+
+      for (const seat of seats) {
+        if (!seat.is_available) {
+          return NextResponse.json({ error: `Kursi ${seat.seat_label} sudah tidak tersedia` }, { status: 400 })
         }
+        if (seat.seat_class !== flight.seat_class) {
+          return NextResponse.json({ error: `Kursi ${seat.seat_label} tidak sesuai kelas penerbangan` }, { status: 400 })
+        }
+        seatModifierTotal += seat.price_modifier
       }
     }
 
@@ -150,7 +175,7 @@ export async function POST(request: Request) {
       full_name: p.full_name,
       id_type: p.id_type,
       id_number: p.id_number,
-      seat_number: hasSeatAssignments ? (seatAssignments[String(i)] ?? null) : null,
+      seat_number: hasSeatAssignments ? (seatAssignmentMap[String(i)] ?? null) : null,
     }))
 
     const { data: createdPassengers, error: passengersError } = await serviceClient
@@ -171,7 +196,7 @@ export async function POST(request: Request) {
     if (hasSeatAssignments && createdPassengers.length > 0) {
       const assignments = createdPassengers.map((p, i) => ({
         passenger_id: p.id,
-        seat_label: seatAssignments[String(i)] ?? '',
+        seat_label: seatAssignmentMap[String(i)] ?? '',
       })).filter(a => a.seat_label)
 
       if (assignments.length > 0) {

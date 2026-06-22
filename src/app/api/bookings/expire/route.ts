@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { requireAuthenticatedUser } from '@/lib/mobile-api/auth'
 import { isValidUUID } from '@/lib/validators'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const auth = await requireAuthenticatedUser(request)
+    if ('error' in auth) return auth.error
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { serviceClient, user } = auth
 
     const { success: rateLimitOk } = await rateLimit(`expire:${user.id}`, 10, 60000)
     if (!rateLimitOk) {
@@ -22,9 +20,6 @@ export async function POST(request: Request) {
     if (!bookingId || !isValidUUID(bookingId)) {
       return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 })
     }
-
-    // Use service client for all data operations
-    const serviceClient = await createServiceClient()
 
     // Verify booking belongs to user
     const { data: booking } = await serviceClient
@@ -50,6 +45,12 @@ export async function POST(request: Request) {
         error: 'Booking tidak dapat di-expire (sudah dibayar atau belum kadaluarsa)',
       }, { status: 400 })
     }
+
+    await serviceClient
+      .from('payments')
+      .update({ status: 'expire', updated_at: new Date().toISOString() })
+      .eq('booking_id', bookingId)
+      .eq('status', 'pending')
 
     return NextResponse.json({ success: true })
   } catch (error) {

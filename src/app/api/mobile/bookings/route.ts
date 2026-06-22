@@ -18,32 +18,43 @@ export async function GET(request: Request) {
     .from('bookings')
     .select(`
       *,
-      flight:flights(
+      flight:flights!bookings_flight_id_fkey(
         *,
         airline:airlines(*),
         departure_airport:airports!flights_departure_airport_id_fkey(*),
         arrival_airport:airports!flights_arrival_airport_id_fkey(*)
       ),
-      passengers(*),
-      payment:payments(*)
+      passengers:passengers!passengers_booking_id_fkey(*),
+      payment:payments!payments_booking_id_fkey(*)
     `, { count: 'exact' })
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: false })
     .range(from, to)
 
   if (error) {
+    console.error('mobile bookings query error', error)
     return fail('Gagal memuat pesanan', 500)
   }
 
-  const bookings = (data ?? []) as BookingWithDetails[]
+  const bookings = ((data ?? []) as BookingWithDetails[]).filter((booking) =>
+    booking.flight &&
+    booking.flight.airline &&
+    booking.flight.departure_airport &&
+    booking.flight.arrival_airport
+  )
 
-  return ok({
-    items: bookings.map(serializeBookingSummary),
-    meta: {
-      page,
-      limit,
-      total: count ?? bookings.length,
-      hasMore: from + bookings.length < (count ?? bookings.length),
-    },
-  })
+  try {
+    return ok({
+      items: bookings.map(serializeBookingSummary),
+      meta: {
+        page,
+        limit,
+        total: count ?? bookings.length,
+        hasMore: from + bookings.length < (count ?? bookings.length),
+      },
+    })
+  } catch (error) {
+    console.error('mobile bookings serialize error', error)
+    return fail('Gagal memuat pesanan', 500)
+  }
 }

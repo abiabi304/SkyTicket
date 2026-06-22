@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { fail, ok } from '@/lib/mobile-api/responses'
+import { createServiceClient } from '@/lib/supabase/server'
 import { serializeFlight } from '@/lib/mobile-api/serializers'
 import { parseMaxPrice, parsePassengerCount, parsePositiveInt, parseSeatClass, parseSortOption, parseTimeFilters } from '@/lib/mobile-api/validators'
 import type { FlightWithDetails, TimeFilter } from '@/lib/types'
@@ -45,18 +45,18 @@ function dateRangeFor(searchParams: URLSearchParams) {
 
 async function airportIdFor(serviceClient: SupabaseClient, value: string) {
   const normalized = isSameAirportValue(value)
-  const { data } = await serviceClient
-    .from('airports')
-    .select('id')
-    .or(`id.eq.${normalized},code.eq.${value.toUpperCase()}`)
-    .maybeSingle()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized)
+  const query = serviceClient.from('airports').select('id')
+  const { data } = isUuid
+    ? await query.or(`id.eq.${normalized},code.eq.${value.toUpperCase()}`)
+      .maybeSingle()
+    : await query.eq('code', value.toUpperCase()).maybeSingle()
 
   return data?.id ?? null
 }
 
 export async function GET(request: Request) {
-  const auth = await requireMobileUser(request)
-  if ('error' in auth) return auth.error
+  const serviceClient = await createServiceClient()
 
   try {
     const { searchParams } = new URL(request.url)
@@ -84,8 +84,8 @@ export async function GET(request: Request) {
       .filter(Boolean)
 
     const [departureAirportId, arrivalAirportId] = await Promise.all([
-      airportIdFor(auth.serviceClient, from),
-      airportIdFor(auth.serviceClient, to),
+      airportIdFor(serviceClient, from),
+      airportIdFor(serviceClient, to),
     ])
 
     if (!departureAirportId || !arrivalAirportId) {
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
     }
 
     const now = new Date().toISOString()
-    let query = auth.serviceClient
+    let query = serviceClient
       .from('flights')
       .select(`
         *,
