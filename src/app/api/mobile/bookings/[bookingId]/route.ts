@@ -20,22 +20,38 @@ export async function GET(
     .from('bookings')
     .select(`
       *,
-      flight:flights(
+      flight:flights!bookings_flight_id_fkey(
         *,
         airline:airlines(*),
         departure_airport:airports!flights_departure_airport_id_fkey(*),
         arrival_airport:airports!flights_arrival_airport_id_fkey(*)
       ),
-      passengers(*),
-      payment:payments(*)
+      passengers:passengers!passengers_booking_id_fkey(*),
+      payment:payments!payments_booking_id_fkey(*)
     `)
     .eq('id', bookingId)
     .eq('user_id', auth.user.id)
     .single()
 
   if (error || !data) {
+    if (error) console.error('mobile booking detail query error', error)
     return fail('Booking tidak ditemukan', 404)
   }
 
-  return ok({ booking: serializeBookingDetail(data as BookingWithDetails) })
+  const booking = data as BookingWithDetails
+  if (
+    !booking.flight ||
+    !booking.flight.airline ||
+    !booking.flight.departure_airport ||
+    !booking.flight.arrival_airport
+  ) {
+    return fail('Detail booking tidak lengkap', 500)
+  }
+
+  try {
+    return ok({ booking: serializeBookingDetail(booking) })
+  } catch (error) {
+    console.error('mobile booking detail serialize error', error)
+    return fail('Gagal memuat detail booking', 500)
+  }
 }

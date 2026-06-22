@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { requireAuthenticatedUser } from '@/lib/mobile-api/auth'
 import { createSnapClient } from '@/lib/midtrans/config'
 import { rateLimit } from '@/lib/rate-limit'
 import { isValidUUID } from '@/lib/validators'
@@ -7,12 +7,10 @@ import type { BookingWithDetails } from '@/lib/types'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const auth = await requireAuthenticatedUser(request)
+    if ('error' in auth) return auth.error
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { serviceClient, user } = auth
 
     const { success: rateLimitOk } = await rateLimit(`payment:${user.id}`, 10, 60000)
     if (!rateLimitOk) {
@@ -24,9 +22,6 @@ export async function POST(request: Request) {
     if (!bookingId || !isValidUUID(bookingId)) {
       return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 })
     }
-
-    // Use service client for all data operations (auth.uid() may be stale in RLS)
-    const serviceClient = await createServiceClient()
 
     // Fetch booking with details
     const { data: booking, error: bookingError } = await serviceClient
@@ -130,6 +125,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       snapToken: transaction.token,
+      redirectUrl: transaction.redirect_url,
       orderId,
     })
   } catch (error) {

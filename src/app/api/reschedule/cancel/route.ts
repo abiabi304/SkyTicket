@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { requireAuthenticatedUser } from '@/lib/mobile-api/auth'
 import { isValidUUID } from '@/lib/validators'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const auth = await requireAuthenticatedUser(request)
+    if ('error' in auth) return auth.error
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { serviceClient, user } = auth
 
     const { success: rateLimitOk } = await rateLimit(`rescancel:${user.id}`, 5, 60000)
     if (!rateLimitOk) {
@@ -22,8 +20,6 @@ export async function POST(request: Request) {
     if (!bookingId || !isValidUUID(bookingId)) {
       return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 })
     }
-
-    const serviceClient = await createServiceClient()
 
     // Verify booking belongs to user and is in rescheduling state
     const { data: booking } = await serviceClient
