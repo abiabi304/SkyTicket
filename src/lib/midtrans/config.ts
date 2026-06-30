@@ -1,4 +1,4 @@
-import midtransClient from 'midtrans-client'
+﻿import midtransClient from 'midtrans-client'
 
 /**
  * Midtrans mode is determined SOLELY by MIDTRANS_IS_PRODUCTION env var.
@@ -7,11 +7,16 @@ import midtransClient from 'midtrans-client'
  */
 const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true'
 
-export function createSnapClient() {
-  return new midtransClient.Snap({
-    isProduction,
-    serverKey: process.env.MIDTRANS_SERVER_KEY!,
-    clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!,
-  })
+const midtransConfig = {
+  isProduction,
+  serverKey: process.env.MIDTRANS_SERVER_KEY!,
+  clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!,
 }
 
+export function createSnapClient() {
+  return new midtransClient.Snap(midtransConfig)
+}
+
+export function createCoreApiClient() {
+  return new midtransClient.CoreApi(midtransConfig)
+}

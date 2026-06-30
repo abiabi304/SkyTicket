@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { reconcileLatestBookingPayment } from '@/lib/midtrans/reconcile'
 import { Footer } from '@/components/layout/footer'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -28,17 +29,27 @@ export default async function PaymentStatusPage({ params }: PaymentStatusPagePro
 
   const serviceClient = await createServiceClient()
 
-  const [{ data: booking }, { data: profile }] = await Promise.all([
-    serviceClient
-      .from('bookings')
-      .select('*, payment:payments(*)')
-      .eq('id', params.bookingId)
-      .eq('user_id', user.id)
-      .single(),
+  const fetchBooking = () => serviceClient
+    .from('bookings')
+    .select('*, payment:payments(*)')
+    .eq('id', params.bookingId)
+    .eq('user_id', user.id)
+    .single()
+
+  const [{ data: initialBooking }, { data: profile }] = await Promise.all([
+    fetchBooking(),
     serviceClient.from('profiles').select('*').eq('id', user.id).single(),
   ])
 
-  if (!booking) redirect('/my-bookings')
+  if (!initialBooking) redirect('/my-bookings')
+
+  let booking = initialBooking
+
+  if (booking.status === 'pending') {
+    await reconcileLatestBookingPayment(serviceClient, params.bookingId)
+    const { data: refreshedBooking } = await fetchBooking()
+    if (refreshedBooking) booking = refreshedBooking
+  }
 
   const status = booking.status as string
 
