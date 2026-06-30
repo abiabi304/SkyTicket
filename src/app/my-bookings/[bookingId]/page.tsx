@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { reconcileLatestBookingPayment } from '@/lib/midtrans/reconcile'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { MobileNav } from '@/components/layout/mobile-nav'
@@ -37,27 +38,37 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
 
   const serviceClient = await createServiceClient()
 
-  const [{ data: booking }, { data: profile }] = await Promise.all([
-    serviceClient
-      .from('bookings')
-      .select(`
+  const fetchBooking = () => serviceClient
+    .from('bookings')
+    .select(`
+      *,
+      flight:flights!bookings_flight_id_fkey(
         *,
-        flight:flights!bookings_flight_id_fkey(
-          *,
-          airline:airlines(*),
-          departure_airport:airports!flights_departure_airport_id_fkey(*),
-          arrival_airport:airports!flights_arrival_airport_id_fkey(*)
-        ),
-        passengers(*),
-        payment:payments(*)
-      `)
-      .eq('id', params.bookingId)
-      .eq('user_id', user.id)
-      .single(),
+        airline:airlines(*),
+        departure_airport:airports!flights_departure_airport_id_fkey(*),
+        arrival_airport:airports!flights_arrival_airport_id_fkey(*)
+      ),
+      passengers(*),
+      payment:payments(*)
+    `)
+    .eq('id', params.bookingId)
+    .eq('user_id', user.id)
+    .single()
+
+  const [{ data: initialBooking }, { data: profile }] = await Promise.all([
+    fetchBooking(),
     serviceClient.from('profiles').select('*').eq('id', user.id).single(),
   ])
 
-  if (!booking) redirect('/my-bookings')
+  if (!initialBooking) redirect('/my-bookings')
+
+  let booking = initialBooking
+
+  if (booking.status === 'pending' || booking.status === 'rescheduling') {
+    await reconcileLatestBookingPayment(serviceClient, params.bookingId)
+    const { data: refreshedBooking } = await fetchBooking()
+    if (refreshedBooking) booking = refreshedBooking
+  }
 
   const typedBooking = {
     ...booking,

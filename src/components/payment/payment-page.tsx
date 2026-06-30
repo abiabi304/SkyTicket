@@ -115,11 +115,8 @@ export function PaymentPage({ booking }: PaymentPageProps) {
       window.snap.embed(data.snapToken, {
         embedId: 'snap-container',
         onSuccess: () => {
-          setPaymentSuccess(true)
-          toast.success('Pembayaran berhasil!')
-          setTimeout(() => {
-            router.push(`/my-bookings/${booking.id}`)
-          }, 2000)
+          toast.info('Pembayaran diterima, memverifikasi status...')
+          router.replace(`/payment/status/${booking.id}`)
         },
         onPending: () => {
           toast.info('Menunggu pembayaran...')
