@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Terlalu banyak permintaan. Coba lagi nanti.' }, { status: 429 })
     }
 
-    const { bookingId } = await request.json()
+    const { bookingId, finishUrl } = await request.json()
 
     if (!bookingId || !isValidUUID(bookingId)) {
       return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 })
@@ -62,6 +62,10 @@ export async function POST(request: Request) {
     }
 
     const orderId = `SKY-${typedBooking.booking_code}-${Date.now()}`
+    const finishCallbackUrl =
+      typeof finishUrl === 'string' && /^https?:\/\//.test(finishUrl)
+        ? finishUrl
+        : `${process.env.NEXT_PUBLIC_APP_URL}/payment/status/${bookingId}`
     const snap = createSnapClient()
 
     // Build item details — Midtrans requires sum(price*qty) === gross_amount
@@ -99,7 +103,7 @@ export async function POST(request: Request) {
       },
       item_details: itemDetails,
       callbacks: {
-        finish: `${process.env.NEXT_PUBLIC_APP_URL}/payment/status/${bookingId}`,
+        finish: finishCallbackUrl,
       },
     }
 

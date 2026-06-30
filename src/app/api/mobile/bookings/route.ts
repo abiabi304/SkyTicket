@@ -1,6 +1,7 @@
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { fail, ok } from '@/lib/mobile-api/responses'
 import { serializeBookingSummary } from '@/lib/mobile-api/serializers'
+import { reconcileLatestBookingPayment } from '@/lib/midtrans/reconcile'
 import { parsePositiveInt } from '@/lib/mobile-api/validators'
 import type { BookingWithDetails } from '@/lib/types'
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const from = (page - 1) * limit
   const to = from + limit - 1
 
-  const { data, error, count } = await auth.serviceClient
+  const fetchBookings = () => auth.serviceClient
     .from('bookings')
     .select(`
       *,
@@ -31,9 +32,32 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .range(from, to)
 
+  let { data, error, count } = await fetchBookings()
+
   if (error) {
     console.error('mobile bookings query error', error)
     return fail('Gagal memuat pesanan', 500)
+  }
+
+  const pendingBookingIds = ((data ?? []) as BookingWithDetails[])
+    .filter((booking) => booking.status === 'pending' || booking.status === 'rescheduling')
+    .map((booking) => booking.id)
+
+  if (pendingBookingIds.length > 0) {
+    await Promise.all(
+      pendingBookingIds.map((bookingId) =>
+        reconcileLatestBookingPayment(auth.serviceClient, bookingId)
+      )
+    )
+    const refreshed = await fetchBookings()
+    data = refreshed.data
+    error = refreshed.error
+    count = refreshed.count
+
+    if (error) {
+      console.error('mobile bookings query error', error)
+      return fail('Gagal memuat pesanan', 500)
+    }
   }
 
   const bookings = ((data ?? []) as BookingWithDetails[]).filter((booking) =>

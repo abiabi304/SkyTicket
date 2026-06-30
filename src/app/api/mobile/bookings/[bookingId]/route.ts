@@ -1,6 +1,7 @@
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { fail, ok } from '@/lib/mobile-api/responses'
 import { serializeBookingDetail } from '@/lib/mobile-api/serializers'
+import { reconcileLatestBookingPayment } from '@/lib/midtrans/reconcile'
 import { isValidUUID } from '@/lib/validators'
 import type { BookingWithDetails } from '@/lib/types'
 
@@ -16,7 +17,7 @@ export async function GET(
     return fail('Booking tidak valid', 400)
   }
 
-  const { data, error } = await auth.serviceClient
+  const fetchBooking = () => auth.serviceClient
     .from('bookings')
     .select(`
       *,
@@ -33,12 +34,20 @@ export async function GET(
     .eq('user_id', auth.user.id)
     .single()
 
-  if (error || !data) {
+  const { data: initialData, error } = await fetchBooking()
+
+  if (error || !initialData) {
     if (error) console.error('mobile booking detail query error', error)
     return fail('Booking tidak ditemukan', 404)
   }
 
-  const booking = data as BookingWithDetails
+  let booking = initialData as BookingWithDetails
+
+  if (booking.status === 'pending' || booking.status === 'rescheduling') {
+    await reconcileLatestBookingPayment(auth.serviceClient, bookingId)
+    const { data: refreshedData } = await fetchBooking()
+    if (refreshedData) booking = refreshedData as BookingWithDetails
+  }
   if (
     !booking.flight ||
     !booking.flight.airline ||
